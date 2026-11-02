@@ -1,0 +1,320 @@
+@import "tailwindcss" source(none);
+@source "..";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Todobee design system — Google Workspace / Material 3 look.
+ * Light chrome (sidebar + top bar) around a large rounded white surface,
+ * Google blue primary, pill-shaped nav and buttons, Google Sans type.
+ * All colors are oklch tokens.
+ */
+
+@theme inline {
+  --font-sans: "Google Sans", "Roboto", ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary-container: var(--on-primary-container);
+  --color-tonal: var(--tonal);
+  --color-tonal-foreground: var(--tonal-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-danger: var(--danger);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-overlay: var(--overlay);
+  --color-column: var(--column);
+  --color-panel: var(--panel);
+  --color-hero-blob: var(--hero-blob);
+  --color-link: var(--link);
+  --color-check: var(--check);
+  --color-star: var(--star);
+  --color-badge: var(--badge);
+  --color-on-swatch: var(--on-swatch);
+  --color-priority-high: var(--priority-high);
+  --color-priority-medium: var(--priority-medium);
+  --color-priority-low: var(--priority-low);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-header: var(--sidebar-header);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
+  --shadow-panel: var(--shadow-panel);
+}
+
+:root {
+  --radius: 0.75rem;
+  /* App chrome (page behind the main surface) */
+  --background: oklch(0.979 0.006 264.5);
+  --foreground: oklch(0.261 0.024 267.1);
+  /* The big rounded content area */
+  --surface: oklch(1 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.261 0.024 267.1);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.261 0.024 267.1);
+  /* Google blue */
+  --primary: oklch(0.495 0.199 260.6);
+  --primary-foreground: oklch(1 0 0);
+  --primary-container: oklch(0.912 0.04 260.1);
+  --on-primary-container: oklch(0.246 0.087 259.7);
+  /* Tonal (secondary container) buttons */
+  --tonal: oklch(0.948 0.012 259.8);
+  --tonal-foreground: oklch(0.261 0.024 267.1);
+  --secondary: oklch(0.948 0.012 259.8);
+  --secondary-foreground: oklch(0.261 0.024 267.1);
+  --muted: oklch(0.955 0.008 259);
+  --muted-foreground: oklch(0.498 0.026 263.1);
+  --subtle: oklch(0.7 0.02 262);
+  --accent: oklch(0.955 0.008 259);
+  --accent-foreground: oklch(0.261 0.024 267.1);
+  --destructive: oklch(0.55 0.21 27);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.923 0.012 259.8);
+  --input: oklch(0.84 0.017 259.4);
+  --ring: oklch(0.495 0.199 260.6);
+  --overlay: oklch(0.261 0.024 267.1 / 40%);
+  --column: oklch(0.966 0.008 253.9);
+  --panel: oklch(0.984 0.005 258.3);
+  --link: oklch(0.495 0.199 260.6);
+  --check: oklch(0.495 0.199 260.6);
+  --star: oklch(0.795 0.184 86.047);
+  --badge: oklch(0.55 0.21 27);
+  --on-swatch: oklch(1 0 0);
+  --priority-high: oklch(0.577 0.245 27.325);
+  --priority-medium: oklch(0.705 0.213 47.604);
+  --priority-low: oklch(0.623 0.214 259.815);
+  /* Base used to darken swatches into readable "ink" on tinted chips */
+  --ink-base: oklch(0.2 0.03 265);
+
+  /* Project + label swatches */
+  --swatch-slate: oklch(0.554 0.046 257.417);
+  --swatch-gray: oklch(0.446 0.03 256.802);
+  --swatch-red: oklch(0.637 0.237 25.331);
+  --swatch-orange: oklch(0.705 0.213 47.604);
+  --swatch-amber: oklch(0.769 0.188 70.08);
+  --swatch-lime: oklch(0.768 0.233 130.85);
+  --swatch-green: oklch(0.723 0.219 149.579);
+  --swatch-teal: oklch(0.704 0.14 182.503);
+  --swatch-sky: oklch(0.685 0.169 237.323);
+  --swatch-blue: oklch(0.623 0.214 259.815);
+  --swatch-indigo: oklch(0.585 0.233 277.117);
+  --swatch-violet: oklch(0.606 0.25 292.717);
+  --swatch-pink: oklch(0.656 0.241 354.308);
+  --swatch-rose: oklch(0.645 0.246 16.439);
+
+  /* Label chips: same hues as the swatches, deepened just enough for white text (WCAG AA 4.5:1) */
+  --label-slate: var(--swatch-slate);
+  --label-gray: var(--swatch-gray);
+  --label-red: oklch(0.586 0.218 25.331);
+  --label-orange: oklch(0.571 0.173 47.604);
+  --label-amber: oklch(0.561 0.137 70.08);
+  --label-lime: oklch(0.545 0.165 130.85);
+  --label-green: oklch(0.535 0.162 149.579);
+  --label-teal: oklch(0.542 0.108 182.503);
+  --label-sky: oklch(0.548 0.135 237.323);
+  --label-blue: oklch(0.567 0.195 259.815);
+  --label-indigo: oklch(0.579 0.231 277.117);
+  --label-violet: oklch(0.582 0.24 292.717);
+  --label-pink: oklch(0.584 0.214 354.308);
+  --label-rose: oklch(0.587 0.224 16.439);
+
+  /* Red used for text and icons (readable on cards); --destructive is for filled buttons */
+  --danger: oklch(0.55 0.21 27);
+
+  --chart-1: oklch(0.55 0.22 262);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+
+  /* Sidebar sits on the app chrome */
+  --sidebar: var(--background);
+  --sidebar-header: var(--background);
+  --sidebar-foreground: oklch(0.261 0.024 267.1);
+  --sidebar-muted: oklch(0.498 0.026 263.1);
+  --sidebar-primary: oklch(0.495 0.199 260.6);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.912 0.04 260.1);
+  --sidebar-accent-foreground: oklch(0.246 0.087 259.7);
+  --sidebar-hover: oklch(0.261 0.024 267.1 / 6%);
+  --sidebar-border: oklch(0.9 0.012 259.8);
+  --sidebar-ring: oklch(0.495 0.199 260.6);
+
+  --gradient-hero: linear-gradient(165deg, oklch(0.78 0.12 222) 0%, oklch(0.6 0.19 258) 100%);
+  --hero-blob: oklch(0.955 0.02 260);
+
+  /* Material elevation */
+  --shadow-card: 0 0 0 1px var(--border), 0 1px 2px 0 oklch(0.26 0.02 267 / 5%);
+  --shadow-raised: 0 1px 2px 0 oklch(0.26 0.02 267 / 12%), 0 1px 3px 1px oklch(0.26 0.02 267 / 6%);
+  --shadow-panel: 0 4px 8px 3px oklch(0.26 0.02 267 / 10%), 0 1px 3px 0 oklch(0.26 0.02 267 / 18%);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    /* App is drawn at 100% scale */
+    font-size: 100%;
+  }
+
+  html,
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
+/* Landing page hero frame (TasksBoard-style blue board backdrop) */
+@utility bg-hero {
+  background-image: var(--gradient-hero);
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-subtle) transparent;
+}
+
+.dark {
+  /* Matches the reference: page #0f1827, cards/header/sidebar #1e293c, borders #364154 */
+  --background: oklch(0.28 0.039 261);
+  --foreground: oklch(0.94 0.008 260);
+  --surface: oklch(0.208 0.033 260.3);
+  --card: oklch(0.28 0.039 261);
+  --card-foreground: oklch(0.94 0.008 260);
+  --popover: oklch(0.28 0.039 261);
+  --popover-foreground: oklch(0.94 0.008 260);
+  --primary: oklch(0.76 0.11 262);
+  --primary-foreground: oklch(0.2 0.04 262);
+  --primary-container: oklch(0.36 0.09 262);
+  --on-primary-container: oklch(0.9 0.05 260);
+  --tonal: oklch(0.34 0.04 260);
+  --tonal-foreground: oklch(0.94 0.008 260);
+  --destructive: oklch(0.58 0.19 25);
+  --destructive-foreground: oklch(1 0 0);
+  --danger: oklch(0.78 0.13 22);
+
+  --secondary: oklch(0.34 0.04 260);
+  --secondary-foreground: oklch(0.94 0.008 260);
+  --muted: oklch(0.32 0.043 258);
+  --muted-foreground: oklch(0.76 0.025 260);
+  --subtle: oklch(0.55 0.03 260);
+  --accent: oklch(0.32 0.04 260);
+  --accent-foreground: oklch(0.96 0.005 260);
+  --border: oklch(0.374 0.036 261.2);
+  --input: oklch(0.45 0.04 257);
+  --ring: oklch(0.72 0.12 260);
+  --column: oklch(0.248 0.037 261.7);
+  --panel: oklch(0.248 0.037 261.7);
+  --link: oklch(0.825 0.08 260.3);
+  --check: oklch(0.68 0.18 262);
+  --overlay: oklch(0.1 0.02 260 / 70%);
+  --ink-base: oklch(1 0 0);
+
+  --sidebar-foreground: oklch(0.94 0.008 260);
+  --sidebar-muted: oklch(0.76 0.025 260);
+  --sidebar-accent: oklch(0.208 0.033 260.3);
+  --sidebar-accent-foreground: oklch(0.9 0.05 260);
+  --sidebar-hover: oklch(1 0 0 / 6%);
+  --sidebar-border: oklch(0.374 0.036 261.2);
+
+  --shadow-card: 0 0 0 1px var(--border), 0 1px 2px 0 oklch(0 0 0 / 30%);
+  --shadow-raised: 0 1px 2px 0 oklch(0 0 0 / 40%), 0 1px 3px 1px oklch(0 0 0 / 20%);
+  --shadow-panel: 0 4px 8px 3px oklch(0 0 0 / 35%), 0 1px 3px 0 oklch(0 0 0 / 50%);
+}
+
+/* Task completed burst (see components/app/burst.ts) */
+.task-burst {
+  position: fixed;
+  z-index: 100;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.task-burst-ray {
+  position: absolute;
+  top: -1.5px;
+  left: 0;
+  width: 7px;
+  height: 3px;
+  border-radius: 999px;
+  transform-origin: 0 50%;
+  opacity: 0;
+  animation: task-burst-ray 520ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+@keyframes task-burst-ray {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--angle)) translateX(var(--burst-start)) scaleX(0.4);
+  }
+  45% {
+    opacity: 1;
+    transform: rotate(var(--angle)) translateX(calc((var(--burst-start) + var(--burst-end)) / 2))
+      scaleX(1.3);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateX(var(--burst-end)) scaleX(0.3);
+  }
+}
+.task-check-pop {
+  animation: task-check-pop 320ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+@keyframes task-check-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-check-pop {
+    animation: none;
+  }
+}

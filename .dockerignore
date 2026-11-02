@@ -1,0 +1,9 @@
+node_modules
+server/node_modules
+.next
+server/pb_data
+server/bin
+.git
+RefCode
+.env
+*.md
