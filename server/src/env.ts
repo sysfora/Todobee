@@ -32,6 +32,11 @@ export const env = {
   appSecret: () => process.env.APP_SECRET || "",
   googleClientId: () => process.env.GOOGLE_CLIENT_ID || "",
   googleClientSecret: () => process.env.GOOGLE_CLIENT_SECRET || "",
+  driveSyncIntervalMs: () => {
+    const parsed = Number(process.env.DRIVE_SYNC_INTERVAL_MS || 60_000);
+    if (!Number.isFinite(parsed)) return 60_000;
+    return Math.max(10_000, Math.round(parsed));
+  },
   stripeKey: () => process.env.STRIPE_SECRET_KEY || "",
   stripeWebhookSecret: () => process.env.STRIPE_WEBHOOK_SECRET || "",
 };

@@ -1,6 +1,31 @@
 import { ownerToken } from "./google.js";
-import { pb, type PbWorkspace } from "./pb.js";
+import type { PbWorkspace } from "./pb.js";
 import type { AppState } from "./demo/types.js";
+
+export class DriveQuotaError extends Error {
+  readonly status: number;
+  constructor(status: number, detail: string) {
+    super(`Google Drive quota reached (${status}): ${detail}`);
+    this.name = "DriveQuotaError";
+    this.status = status;
+  }
+}
+
+export function isDriveQuotaError(error: unknown): error is DriveQuotaError {
+  return error instanceof DriveQuotaError;
+}
+
+function checkQuotaFailure(status: number, text: string) {
+  if (
+    status === 429 ||
+    (status === 403 &&
+      /quota|rateLimitExceeded|userRateLimitExceeded|dailyLimitExceeded|sharingRateLimitExceeded|rate limit/i.test(
+        text,
+      ))
+  ) {
+    throw new DriveQuotaError(status, text.slice(0, 280));
+  }
+}
 
 async function drive(token: string, url: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
@@ -8,6 +33,7 @@ async function drive(token: string, url: string, init: RequestInit = {}) {
   const res = await fetch(url, { ...init, headers });
   if (!res.ok) {
     const text = await res.text();
+    checkQuotaFailure(res.status, text);
     throw new Error(`Google Drive ${res.status}: ${text.slice(0, 280)}`);
   }
   return res;
@@ -22,6 +48,10 @@ export async function ensureFolder(token: string, existing?: string) {
     if (res.ok) {
       const data = (await res.json()) as { trashed?: boolean; id?: string };
       if (data.id && !data.trashed) return data.id;
+    } else if (res.status !== 404) {
+      const text = await res.text();
+      checkQuotaFailure(res.status, text);
+      throw new Error(`Google Drive ${res.status}: ${text.slice(0, 280)}`);
     }
   }
   const created = await drive(token, "https://www.googleapis.com/drive/v3/files?fields=id", {
@@ -80,18 +110,39 @@ export async function downloadFile(token: string, fileId: string) {
 }
 
 export async function deleteFile(token: string, fileId: string) {
-  await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
     method: "DELETE",
     headers: { authorization: `Bearer ${token}` },
   });
+  if (!res.ok && res.status !== 404) {
+    const text = await res.text();
+    checkQuotaFailure(res.status, text);
+    throw new Error(`Google Drive ${res.status}: ${text.slice(0, 280)}`);
+  }
 }
 
-/** PocketBase holds the cache. The admin's Google Drive holds the durable copy. */
-export async function syncDrive(workspace: PbWorkspace, state: AppState) {
-  const token = await ownerToken(workspace.owner);
-  if (!token) return { driveSynced: false as const, driveFolderId: workspace.driveFolderId, driveFileId: workspace.driveFileId };
-  const driveFolderId = await ensureFolder(token, workspace.driveFolderId);
-  const driveFileId = await writeWorkspaceFile(token, driveFolderId, workspace.driveFileId, state);
-  await pb().collection("workspaces").update(workspace.id, { driveFolderId, driveFileId, driveSynced: true });
-  return { driveSynced: true as const, driveFolderId, driveFileId };
+export function missingDriveFile(error: unknown) {
+  return error instanceof Error && error.message.startsWith("Google Drive 404");
+}
+
+/** Upload one workspace cache to that workspace admin's Drive. Does not mark it synced. */
+export async function syncDrive(workspace: PbWorkspace, state: AppState, tokenOverride?: string) {
+  const token = tokenOverride || (await ownerToken(workspace.owner));
+  if (!token) {
+    return { ok: false as const, driveFolderId: workspace.driveFolderId, driveFileId: workspace.driveFileId };
+  }
+  let driveFolderId = workspace.driveFolderId || "";
+  let driveFileId = workspace.driveFileId;
+  if (driveFolderId && driveFileId) {
+    try {
+      await writeWorkspaceFile(token, driveFolderId, driveFileId, state);
+      return { ok: true as const, driveFolderId, driveFileId };
+    } catch (error) {
+      if (!missingDriveFile(error)) throw error;
+      driveFileId = undefined;
+    }
+  }
+  driveFolderId = await ensureFolder(token, driveFolderId || undefined);
+  driveFileId = await writeWorkspaceFile(token, driveFolderId, undefined, state);
+  return { ok: true as const, driveFolderId, driveFileId };
 }

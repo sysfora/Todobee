@@ -15,7 +15,8 @@ import {
   type PbWorkspace,
 } from "./pb.js";
 import { accessTokenFor, exchangeCode, googleAuthUrl, googleProfile, rememberAccess } from "./google.js";
-import { deleteFile, downloadFile, ensureFolder, syncDrive, uploadFile } from "./drive.js";
+import { downloadFile, ensureFolder, uploadFile } from "./drive.js";
+import { startDriveSync, stopDriveSync, syncPendingWorkspaces } from "./drive-sync.js";
 import { applyStripeSubscription, createCheckout, getStripe, updateSubscription } from "./billing.js";
 import { claimIdentity, fileIds, initialWorkspaceState, mergeState, present, seatProblem, type Viewer } from "./state.js";
 import type { AppState } from "./demo/types.js";
@@ -178,19 +179,16 @@ async function claimWorkspace(user: PbUser): Promise<PbMember | null> {
     let role = claimed.role;
     if (workspace.owner === user.id) role = "admin";
     else if (role === "admin" && workspace.plan !== "enterprise") role = "member";
-    await pb().collection("workspaces").update(workspace.id, { cache: claimed.state, driveSynced: false });
-    const member = await pb().collection("members").create<PbMember>({
+    await pb().collection("workspaces").update(workspace.id, {
+      cache: claimed.state,
+      driveSynced: false,
+      cacheRevision: (workspace.cacheRevision ?? 0) + 1,
+    });
+    return await pb().collection("members").create<PbMember>({
       workspace: workspace.id,
       user: user.id,
       role,
     });
-    const fresh = await pb().collection("workspaces").getOne<PbWorkspace>(workspace.id);
-    try {
-      await syncDrive(fresh, claimed.state);
-    } catch (error) {
-      console.error("Drive sync after invite accept failed", error);
-    }
-    return member;
   }
   return null;
 }
@@ -209,19 +207,14 @@ async function createWorkspace(user: PbUser) {
     seats: Math.max(MIN_SEATS, state.users.length),
     status: "inactive",
     cache: state,
+    cacheRevision: 1,
     driveSynced: false,
   });
-  const member = await pb().collection("members").create<PbMember>({
+  return await pb().collection("members").create<PbMember>({
     workspace: workspace.id,
     user: user.id,
     role: "admin",
   });
-  try {
-    await syncDrive(workspace, state);
-  } catch (error) {
-    console.error("Initial Google Drive setup failed", error);
-  }
-  return member;
 }
 
 app.post("/api/auth/logout", (c) => {
@@ -247,21 +240,13 @@ app.get("/api/me", async (c) => {
 app.get("/api/workspace", async (c) => {
   const session = await loadSession(c.req.header("cookie"));
   if (!session?.member || !session.workspace) return c.json({ error: "You're signed out." }, 401);
-  let workspace = session.workspace;
-  let cache = workspace.cache || initialWorkspaceState({
+  const workspace = session.workspace;
+  const cache = workspace.cache || initialWorkspaceState({
     id: session.user.id,
     name: session.user.name || session.user.email,
     email: session.user.email,
     avatar: session.user.avatar,
   });
-  if (!workspace.driveSynced) {
-    try {
-      await syncDrive(workspace, cache);
-      workspace = await pb().collection("workspaces").getOne<PbWorkspace>(workspace.id);
-    } catch (error) {
-      console.error(error);
-    }
-  }
   return c.json({
     state: present(cache, viewerOf(session.user, session.member), billingOf(workspace)),
     driveConnected: await driveReady(workspace),
@@ -300,33 +285,40 @@ app.put("/api/workspace", async (c) => {
     }
   }
 
-  const merged = stripFiles(mergeState(stored, incoming, viewer, billing));
+  const merged = stripFiles(mergeState(stored, incoming, viewer, billing), stored);
   const removed = [...fileIds(stored)].filter((id) => !fileIds(merged).has(id));
-  workspace = await pb().collection("workspaces").update<PbWorkspace>(workspace.id, {
+  const pendingDriveDeletes = [...new Set([...(workspace.pendingDriveDeletes ?? []), ...removed])];
+  await pb().collection("workspaces").update(workspace.id, {
     name: merged.workspace.name,
     cache: merged,
+    cacheRevision: (workspace.cacheRevision ?? 0) + 1,
     driveSynced: false,
+    pendingDriveDeletes,
   });
-  let driveSynced = false;
-  try {
-    await syncDrive(workspace, merged);
-    driveSynced = true;
-    const token = await accessTokenFor(await pb().collection("users").getOne<PbUser>(workspace.owner));
-    if (token) {
-      await Promise.all(removed.map((id) => deleteFile(token, id).catch(() => undefined)));
+  const syncedFiles: Record<string, string> = {};
+  for (const task of merged.tasks ?? []) {
+    for (const file of task.files ?? []) {
+      if (file.driveUrl) syncedFiles[file.id] = file.driveUrl;
     }
-  } catch (error) {
-    console.error(error);
   }
-  return c.json({ ok: true, driveSynced });
+  return c.json({ ok: true, pendingSync: true, syncedFiles });
 });
 
-function stripFiles(state: AppState): AppState {
+function stripFiles(state: AppState, stored?: AppState): AppState {
+  const existingDriveUrls = new Map<string, string>();
+  for (const task of stored?.tasks ?? []) {
+    for (const file of task.files ?? []) {
+      if (file.driveUrl) existingDriveUrls.set(file.id, file.driveUrl);
+    }
+  }
   return {
     ...state,
     tasks: state.tasks.map((task) => ({
       ...task,
-      files: (task.files ?? []).map((file) => (file.driveUrl ? { ...file, dataUrl: undefined } : file)),
+      files: (task.files ?? []).map((file) => {
+        const driveUrl = file.driveUrl || existingDriveUrls.get(file.id);
+        return driveUrl ? { ...file, driveUrl, dataUrl: undefined } : file;
+      }),
     })),
   };
 }
@@ -507,6 +499,7 @@ const proxy = httpProxy.createProxyServer({
 });
 
 await initPocketBase();
+startDriveSync();
 
 const server = http.createServer((req, res) => {
   const url = req.url || "/";
@@ -528,3 +521,16 @@ server.on("upgrade", (req, socket, head) => {
 server.listen(env.port(), () => {
   console.log(`Todobee API on :${env.port()}`);
 });
+
+function shutdown() {
+  stopDriveSync();
+  server.close();
+  const force = setTimeout(() => process.exit(0), 20_000);
+  force.unref();
+  void syncPendingWorkspaces()
+    .then(() => syncPendingWorkspaces())
+    .finally(() => process.exit(0));
+}
+
+process.once("SIGINT", shutdown);
+process.once("SIGTERM", shutdown);

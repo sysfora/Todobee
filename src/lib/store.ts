@@ -76,33 +76,20 @@ function persist() {
   }, 700);
 }
 
-async function uploadPendingFiles(snapshot: AppState): Promise<AppState> {
+function applySyncedFiles(snapshot: AppState, syncedFiles?: Record<string, string>): AppState {
+  if (!syncedFiles || Object.keys(syncedFiles).length === 0) return snapshot;
   let changed = false;
-  const tasks = await Promise.all(
-    snapshot.tasks.map(async (task) => {
-      const files = await Promise.all(
-        (task.files ?? []).map(async (file) => {
-          if (!file.dataUrl || file.driveUrl) return file;
-          const res = await fetch("/api/files", {
-            method: "POST",
-            credentials: "include",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              name: file.name,
-              mimeType: file.mimeType,
-              dataUrl: file.dataUrl,
-            }),
-          });
-          if (!res.ok) return file;
-          const body = (await res.json()) as { driveUrl?: string };
-          if (!body.driveUrl) return file;
-          changed = true;
-          return { ...file, driveUrl: body.driveUrl, dataUrl: undefined };
-        }),
-      );
-      return { ...task, files };
-    }),
-  );
+  const tasks = snapshot.tasks.map((task) => {
+    let taskChanged = false;
+    const files = (task.files ?? []).map((file) => {
+      const driveUrl = syncedFiles[file.id];
+      if (!driveUrl || (file.driveUrl === driveUrl && !file.dataUrl)) return file;
+      changed = true;
+      taskChanged = true;
+      return { ...file, driveUrl, dataUrl: undefined };
+    });
+    return taskChanged ? { ...task, files } : task;
+  });
   return changed ? { ...snapshot, tasks } : snapshot;
 }
 
@@ -113,11 +100,6 @@ async function pushState() {
   }
   pushing = true;
   try {
-    const prepared = await uploadPendingFiles(state);
-    if (prepared !== state) {
-      state = prepared;
-      emit();
-    }
     const res = await fetch("/api/workspace", {
       method: "PUT",
       credentials: "include",
@@ -130,11 +112,11 @@ async function pushState() {
         description: body.error ?? "Check your connection and try again.",
       });
     } else {
-      const body = (await res.json().catch(() => ({}))) as { driveSynced?: boolean };
-      if (body.driveSynced === false) {
-        toast.error("Saved, but Google Drive didn't update", {
-          description: "We'll try again the next time you make a change.",
-        });
+      const body = (await res.json().catch(() => ({}))) as { syncedFiles?: Record<string, string> };
+      const next = applySyncedFiles(state, body.syncedFiles);
+      if (next !== state) {
+        state = next;
+        emit();
       }
     }
   } catch {

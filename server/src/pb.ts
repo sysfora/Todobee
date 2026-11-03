@@ -25,7 +25,9 @@ export interface PbWorkspace {
   driveFolderId?: string;
   driveFileId?: string;
   cache?: AppState;
+  cacheRevision?: number;
   driveSynced?: boolean;
+  pendingDriveDeletes?: string[];
   status?: string;
 }
 
@@ -84,38 +86,53 @@ async function ensureSchema(db: PocketBase) {
   }
 
   const usersId = users.id;
+  const workspaceFields = (usersIdForRelation: string) => [
+    { name: "name", type: "text", required: true, max: 200 },
+    { name: "owner", type: "relation", required: true, collectionId: usersIdForRelation, maxSelect: 1 },
+    {
+      name: "plan",
+      type: "select",
+      maxSelect: 1,
+      values: ["premium", "pro", "enterprise"],
+    },
+    { name: "seats", type: "number", min: 0 },
+    { name: "subscribedAt", type: "date" },
+    { name: "renewsAt", type: "date" },
+    { name: "stripeCustomerId", type: "text", max: 200 },
+    { name: "stripeSubscriptionId", type: "text", max: 200 },
+    { name: "driveFolderId", type: "text", max: 200 },
+    { name: "driveFileId", type: "text", max: 200 },
+    { name: "cache", type: "json", maxSize: 8000000 },
+    { name: "cacheRevision", type: "number", min: 0 },
+    { name: "driveSynced", type: "bool" },
+    { name: "pendingDriveDeletes", type: "json", maxSize: 200000 },
+    {
+      name: "status",
+      type: "select",
+      maxSelect: 1,
+      values: ["inactive", "active", "past_due", "canceled"],
+    },
+  ];
   let workspacesId = "";
+  let existing: { id: string; fields?: { name: string }[] } | null = null;
   try {
-    workspacesId = (await db.collections.getOne("workspaces")).id;
+    existing = await db.collections.getOne("workspaces");
   } catch {
+    existing = null;
+  }
+  if (existing) {
+    workspacesId = existing.id;
+    const fields = existing.fields ?? [];
+    const have = new Set(fields.map((field) => field.name));
+    const extra = workspaceFields(usersId).filter((field) => !have.has(field.name));
+    if (extra.length) {
+      await db.collections.update(existing.id, { fields: [...fields, ...extra] });
+    }
+  } else {
     const created = await db.collections.create({
       name: "workspaces",
       type: "base",
-      fields: [
-        { name: "name", type: "text", required: true, max: 200 },
-        { name: "owner", type: "relation", required: true, collectionId: usersId, maxSelect: 1 },
-        {
-          name: "plan",
-          type: "select",
-          maxSelect: 1,
-          values: ["premium", "pro", "enterprise"],
-        },
-        { name: "seats", type: "number", min: 0 },
-        { name: "subscribedAt", type: "date" },
-        { name: "renewsAt", type: "date" },
-        { name: "stripeCustomerId", type: "text", max: 200 },
-        { name: "stripeSubscriptionId", type: "text", max: 200 },
-        { name: "driveFolderId", type: "text", max: 200 },
-        { name: "driveFileId", type: "text", max: 200 },
-        { name: "cache", type: "json", maxSize: 8000000 },
-        { name: "driveSynced", type: "bool" },
-        {
-          name: "status",
-          type: "select",
-          maxSelect: 1,
-          values: ["inactive", "active", "past_due", "canceled"],
-        },
-      ],
+      fields: workspaceFields(usersId),
     });
     workspacesId = created.id;
   }
