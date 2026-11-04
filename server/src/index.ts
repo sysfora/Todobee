@@ -520,25 +520,35 @@ const proxy = httpProxy.createProxyServer({
 await initPocketBase();
 startDriveSync();
 
+function forwardToNext(req: http.IncomingMessage, res: http.ServerResponse, attempts = 0) {
+  proxy.web(req, res, undefined, (error) => {
+    if ((error as any)?.code === "ECONNREFUSED" && attempts < 5 && !res.headersSent) {
+      setTimeout(() => forwardToNext(req, res, attempts + 1), 600);
+      return;
+    }
+    console.error(error);
+    if (!res.headersSent) {
+      res.statusCode = 502;
+      res.end("Next.js isn't running.");
+    }
+  });
+}
+
 const server = http.createServer((req, res) => {
   const url = req.url || "/";
   if (url.startsWith("/api") || process.env.PROXY_NEXT !== "1") {
     listener(req, res);
     return;
   }
-  proxy.web(req, res, undefined, (error) => {
-    console.error(error);
-    res.statusCode = 502;
-    res.end("Next.js isn't running.");
-  });
+  forwardToNext(req, res);
 });
 
 server.on("upgrade", (req, socket, head) => {
   if (process.env.PROXY_NEXT === "1") proxy.ws(req, socket, head);
 });
 
-server.listen(env.port(), () => {
-  console.log(`Todobee API on :${env.port()}`);
+server.listen(env.port(), "0.0.0.0", () => {
+  console.log(`Todobee API on 0.0.0.0:${env.port()}`);
 });
 
 function shutdown() {

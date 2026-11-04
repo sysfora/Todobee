@@ -5,7 +5,7 @@ if [ ! -f /app/web/server.js ]; then
   exit 1
 fi
 
-PUBLIC_PORT="${PORT:-8080}"
+PUBLIC_PORT="${PORT:-3000}"
 if [ "$PUBLIC_PORT" = "3000" ]; then
   INTERNAL_PORT=3001
 else

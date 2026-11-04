@@ -26,8 +26,8 @@ COPY --from=server /app/server /app/server
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENV NODE_ENV=production
-ENV PORT=8080
+ENV PORT=3000
 ENV PROXY_NEXT=1
 ENV NEXT_ORIGIN=http://127.0.0.1:3000
-EXPOSE 8080
+EXPOSE 3000
 CMD ["/entrypoint.sh"]

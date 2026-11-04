@@ -31,7 +31,7 @@ if (hasStandalone) {
 // In production (e.g. Railway), traffic is routed to the public PORT.
 // The Todobee server acts as the primary gateway on publicPort, serving /api directly
 // and proxying all frontend routes to Next.js running on an internal port.
-const publicPort = String(process.env.PORT || "8080");
+const publicPort = String(process.env.PORT || "3000");
 // Choose an internal Next.js port that never collides with publicPort
 const nextInternalPort = publicPort === "3000" ? "3001" : "3000";
 
