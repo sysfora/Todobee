@@ -16,19 +16,24 @@ if (hasStandalone) {
   const publicDest = path.join(standaloneDir, "public");
 
   try {
-    if (fs.existsSync(staticSrc) && !fs.existsSync(staticDest)) {
-      fs.cpSync(staticSrc, staticDest, { recursive: true });
+    if (fs.existsSync(staticSrc)) {
+      fs.mkdirSync(path.dirname(staticDest), { recursive: true });
+      fs.cpSync(staticSrc, staticDest, { recursive: true, force: true });
     }
-    if (fs.existsSync(publicSrc) && !fs.existsSync(publicDest)) {
-      fs.cpSync(publicSrc, publicDest, { recursive: true });
+    if (fs.existsSync(publicSrc)) {
+      fs.cpSync(publicSrc, publicDest, { recursive: true, force: true });
     }
   } catch (err) {
     console.warn("Could not copy static assets to standalone directory:", err);
   }
 }
 
-const publicPort = process.env.PORT || "3000";
-const internalApiPort = process.env.API_PORT || "4000";
+// In production (e.g. Railway), traffic is routed to the public PORT.
+// The Todobee server acts as the primary gateway on publicPort, serving /api directly
+// and proxying all frontend routes to Next.js running on an internal port.
+const publicPort = String(process.env.PORT || "8080");
+// Choose an internal Next.js port that never collides with publicPort
+const nextInternalPort = publicPort === "3000" ? "3001" : "3000";
 
 function run(command, cwd, extraEnv = {}) {
   const child = spawn(command, {
@@ -72,29 +77,30 @@ function stop(exitCode = 0) {
 process.on("SIGINT", () => stop(0));
 process.on("SIGTERM", () => stop(0));
 
-console.log(`Starting Todobee API backend on port ${internalApiPort}...`);
-children.push(
-  run("npm run start", path.join(root, "server"), {
-    PORT: String(internalApiPort),
-    PROXY_NEXT: "0",
-  })
-);
-
-console.log(`Starting Next.js frontend on port ${publicPort}...`);
+console.log(`Starting Next.js frontend internally on port ${nextInternalPort}...`);
 if (hasStandalone) {
   children.push(
     run("node server.js", standaloneDir, {
-      PORT: String(publicPort),
-      HOSTNAME: "0.0.0.0",
-      API_INTERNAL_URL: `http://127.0.0.1:${internalApiPort}`,
+      PORT: nextInternalPort,
+      HOSTNAME: "127.0.0.1",
+      API_INTERNAL_URL: `http://127.0.0.1:${publicPort}`,
     })
   );
 } else {
   children.push(
-    run(`npx next start -p ${publicPort} -H 0.0.0.0`, root, {
-      PORT: String(publicPort),
-      API_INTERNAL_URL: `http://127.0.0.1:${internalApiPort}`,
+    run(`npx next start -p ${nextInternalPort} -H 127.0.0.1`, root, {
+      PORT: nextInternalPort,
+      API_INTERNAL_URL: `http://127.0.0.1:${publicPort}`,
     })
   );
 }
+
+console.log(`Starting Todobee API gateway on public port ${publicPort}...`);
+children.push(
+  run("npm run start", path.join(root, "server"), {
+    PORT: publicPort,
+    PROXY_NEXT: "1",
+    NEXT_ORIGIN: `http://127.0.0.1:${nextInternalPort}`,
+  })
+);
 
