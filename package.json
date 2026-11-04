@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "postinstall": "npm install --prefix server",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/start.mjs",
     "typecheck": "tsc --noEmit && npm run typecheck --prefix server",
     "server": "npm run dev --prefix server"
   },
