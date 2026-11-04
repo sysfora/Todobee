@@ -19,21 +19,38 @@ export interface Billing {
 }
 
 export function initialWorkspaceState(user: { id: string; name: string; email: string; avatar?: string }): AppState {
-  const seed = createSeed();
-  const next = JSON.parse(JSON.stringify(seed).split(CURRENT_USER_ID).join(user.id)) as AppState;
-  next.currentUserId = user.id;
-  next.users = next.users.map((person) =>
-    person.id === user.id
-      ? {
-          ...person,
-          name: user.name,
-          email: user.email,
-          avatar: user.avatar || person.avatar,
-          role: "Admin",
-        }
-      : person,
-  );
-  return next;
+  const adminUser: User = {
+    id: user.id,
+    name: user.name || "Admin",
+    email: user.email,
+    role: "Admin",
+    avatar: user.avatar,
+  };
+
+  return {
+    currentUserId: user.id,
+    workspace: {
+      name: user.name ? `${user.name.split(" ")[0]}'s Workspace` : "Todobee Workspace",
+      plan: "premium",
+      seats: 10,
+    },
+    notificationPrefs: {},
+    users: [adminUser],
+    invites: [],
+    labels: [
+      { id: "l-feature", name: "Feature", color: "violet" },
+      { id: "l-bug", name: "Bug", color: "violet" },
+      { id: "l-improvement", name: "Improvement", color: "sky" },
+      { id: "l-design", name: "Design", color: "red" },
+      { id: "l-marketing", name: "Marketing", color: "amber" },
+      { id: "l-research", name: "Research", color: "green" },
+      { id: "l-urgent", name: "Urgent", color: "pink" },
+      { id: "l-nice", name: "Nice to have", color: "red" },
+    ],
+    projects: [],
+    sections: [],
+    tasks: [],
+  };
 }
 
 export function present(state: AppState, viewer: Viewer, billing: Billing): AppState {

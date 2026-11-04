@@ -21,7 +21,6 @@ import {
 import { useSignOut } from "@/hooks/use-sign-out";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { PlanCards, SeatPicker } from "@/components/app/PlanPicker";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -108,7 +107,6 @@ function ChoosePlan({ account }: { account: Account }) {
   );
   const [seats, setSeats] = useState(Math.max(MIN_SEATS, account.workspace.seats));
   const [saving, setSaving] = useState(false);
-  const [payOpen, setPayOpen] = useState(false);
 
   const choosePlan = (p: PlanId) => {
     setPlan(p);
@@ -204,7 +202,7 @@ function ChoosePlan({ account }: { account: Account }) {
             </div>
             <Button
               size="lg"
-              onClick={() => setPayOpen(true)}
+              onClick={() => void subscribe()}
               disabled={saving || !!error}
               className="w-full sm:w-auto"
             >
@@ -214,54 +212,6 @@ function ChoosePlan({ account }: { account: Account }) {
           </>
         )}
       </div>
-
-      {!enterprise && (
-        <Dialog open={payOpen} onOpenChange={setPayOpen}>
-          <DialogContent className="max-w-xl gap-0 p-0 [&>button:last-child]:hidden">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (saving) return;
-                void subscribe();
-              }}
-            >
-              <div className="space-y-5 px-6 pt-6 pb-5">
-                <DialogTitle className="text-lg font-semibold">Payment details</DialogTitle>
-                <div className="rounded-2xl bg-muted/50 p-4">
-                  <p className="text-sm text-muted-foreground">
-                    {getPlan(plan).name} · {seats} seats × {money(getPlan(plan).pricePerSeat)} /
-                    month, billed yearly
-                  </p>
-                  <p className="mt-1 text-lg font-medium text-foreground">
-                    {money(total)} due today{" "}
-                    <span className="text-sm font-normal text-muted-foreground">
-                      · renews {renewal}
-                    </span>
-                  </p>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Card details are entered on Stripe's secure checkout. You'll come back here once
-                  the yearly subscription is active.
-                </p>
-              </div>
-              <div className="flex justify-end gap-2 rounded-b-3xl px-6 pt-2 pb-6">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="text-primary"
-                  onClick={() => setPayOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving && <Loader2 className="animate-spin" />}
-                  Continue to Stripe
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      )}
 
     </div>
   );

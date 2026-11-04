@@ -63,12 +63,27 @@ export async function ensureFolder(token: string, existing?: string) {
   return json.id;
 }
 
-export async function writeWorkspaceFile(token: string, folderId: string, fileId: string | undefined, state: AppState) {
+export function workspaceFileName(workspaceName?: string): string {
+  const clean = (workspaceName || "workspace")
+    .trim()
+    .replace(/[/\\?%*:|"<>]/g, "-")
+    .slice(0, 100);
+  return `${clean || "workspace"}.json`;
+}
+
+export async function writeWorkspaceFile(
+  token: string,
+  folderId: string,
+  fileId: string | undefined,
+  state: AppState,
+) {
+  const fileName = workspaceFileName(state.workspace?.name);
   const json = JSON.stringify(state);
+  const boundary = "todobeejson";
+
   if (!fileId) {
-    const boundary = "todobeejson";
     const meta = JSON.stringify({
-      name: "workspace.json",
+      name: fileName,
       mimeType: "application/json",
       parents: [folderId],
     });
@@ -81,10 +96,13 @@ export async function writeWorkspaceFile(token: string, folderId: string, fileId
     const created = (await res.json()) as { id: string };
     return created.id;
   }
-  await drive(token, `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+
+  const meta = JSON.stringify({ name: fileName });
+  const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${json}\r\n--${boundary}--`;
+  await drive(token, `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, {
     method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: json,
+    headers: { "content-type": `multipart/related; boundary=${boundary}` },
+    body,
   });
   return fileId;
 }
@@ -118,6 +136,27 @@ export async function deleteFile(token: string, fileId: string) {
     const text = await res.text();
     checkQuotaFailure(res.status, text);
     throw new Error(`Google Drive ${res.status}: ${text.slice(0, 280)}`);
+  }
+}
+
+/** Remove any unexpected README file from the Todobee Drive folder if one exists */
+export async function cleanUnexpectedReadmeFiles(token: string, folderId: string) {
+  if (!token || !folderId) return;
+  try {
+    const q = encodeURIComponent(
+      `'${folderId}' in parents and trashed = false and (name contains 'readme' or name contains 'README')`,
+    );
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    const data = (await res.json()) as { files?: { id: string; name: string }[] };
+    for (const file of data.files ?? []) {
+      await deleteFile(token, file.id).catch(() => undefined);
+      console.log(`[Google Drive] Removed readme file: ${file.name}`);
+    }
+  } catch {
+    // Ignore cleanup errors
   }
 }
 

@@ -1,4 +1,11 @@
-import { deleteFile, ensureFolder, isDriveQuotaError, syncDrive, uploadFile } from "./drive.js";
+import {
+  cleanUnexpectedReadmeFiles,
+  deleteFile,
+  ensureFolder,
+  isDriveQuotaError,
+  syncDrive,
+  uploadFile,
+} from "./drive.js";
 import { env } from "./env.js";
 import { accessTokenFor } from "./google.js";
 import { pb, type PbUser, type PbWorkspace } from "./pb.js";
@@ -97,7 +104,7 @@ async function flushWorkspace(workspace: PbWorkspace): Promise<{ synced: boolean
     });
   }
 
-  // 3. Sync workspace.json to Google Drive
+  // 3. Sync workspace file (${workspaceName}.json) to Google Drive
   const uploaded = await syncDrive(
     { ...workspace, driveFolderId: driveFolderId || workspace.driveFolderId },
     currentCache,
@@ -105,6 +112,9 @@ async function flushWorkspace(workspace: PbWorkspace): Promise<{ synced: boolean
   );
   operations += 1;
   if (!uploaded.ok || !uploaded.driveFileId) return { synced: false, operations };
+
+  // Ensure no readme file exists in the Todobee Drive folder
+  await cleanUnexpectedReadmeFiles(token, uploaded.driveFolderId);
 
   const fresh = await pb().collection("workspaces").getOne<PbWorkspace>(workspace.id);
   const mergedCache = applyUploadedFiles(fresh.cache || currentCache, uploadedUrls);
