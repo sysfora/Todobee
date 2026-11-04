@@ -1,5 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function load(file: string) {
   if (!existsSync(file)) return;
@@ -16,10 +19,12 @@ function load(file: string) {
     ) {
       value = value.slice(1, -1);
     }
-    if (process.env[key] === undefined) process.env[key] = value;
+    if (!process.env[key]) process.env[key] = value;
   }
 }
 
+load(path.resolve(__dirname, "../../.env"));
+load(path.resolve(__dirname, "../.env"));
 load(path.resolve(".env"));
 load(path.resolve("../.env"));
 

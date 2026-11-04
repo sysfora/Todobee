@@ -113,18 +113,35 @@ app.get("/api/auth/google", (c) => {
     return c.json({ error: "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET." }, 500);
   }
   const state = sealJson({ next: safeNext(c.req.query("next")) }, 600);
-  return c.redirect(googleAuthUrl(state));
+  const authUrl = googleAuthUrl(state);
+  console.log(`[Google OAuth] Redirecting to Google auth with redirect_uri: ${env.appUrl()}/api/auth/google/callback`);
+  return c.redirect(authUrl);
 });
 
 app.get("/api/auth/google/callback", async (c) => {
   const oauthError = c.req.query("error");
-  if (oauthError) return c.redirect(`${env.appUrl()}/?auth_error=1`);
+  const oauthDesc = c.req.query("error_description");
+  if (oauthError) {
+    console.error(`[Google OAuth Error] ${oauthError}: ${oauthDesc || "No description provided by Google"}`);
+    return c.redirect(`${env.appUrl()}/?auth_error=${encodeURIComponent(oauthError)}`);
+  }
   const code = c.req.query("code") || "";
-  const state = openJson<{ next: string }>(c.req.query("state"));
-  if (!code || !state) return c.redirect(`${env.appUrl()}/?auth_error=1`);
+  const rawState = c.req.query("state");
+  const state = openJson<{ next: string }>(rawState);
+  if (!code || !state) {
+    console.error("[Google OAuth Error] Missing authorization code or invalid state token", {
+      hasCode: Boolean(code),
+      hasState: Boolean(rawState),
+      stateVerified: Boolean(state),
+    });
+    return c.redirect(`${env.appUrl()}/?auth_error=invalid_state`);
+  }
   try {
+    console.log("[Google OAuth] Exchanging code for tokens...");
     const tokens = await exchangeCode(code);
+    console.log("[Google OAuth] Fetching user profile...");
     const profile = await googleProfile(tokens.access_token!);
+    console.log(`[Google OAuth] User authenticated: ${profile.email}`);
     let user = (await findUserBy("googleSub", profile.sub)) || (await findUserBy("email", profile.email));
     const refresh = tokens.refresh_token ? encrypt(tokens.refresh_token) : user?.refreshToken || "";
     if (!user) {
@@ -158,10 +175,12 @@ app.get("/api/auth/google/callback", async (c) => {
     const home = member.role === "admin" ? "/dashboard" : "/projects";
     const dest = workspace.subscribedAt ? safeNext(state.next || home) : "/subscribe";
     c.header("set-cookie", sessionCookie(sealJson({ uid: user.id }, 60 * 60 * 24 * 30)));
+    console.log(`[Google OAuth] Login successful for ${user.email}, redirecting to ${dest}`);
     return c.redirect(`${env.appUrl()}${dest}`);
   } catch (error) {
-    console.error(error);
-    return c.redirect(`${env.appUrl()}/?auth_error=1`);
+    console.error("[Google OAuth Callback Error]:", error);
+    const msg = error instanceof Error ? error.message : "server_error";
+    return c.redirect(`${env.appUrl()}/?auth_error=${encodeURIComponent(msg.slice(0, 60))}`);
   }
 });
 

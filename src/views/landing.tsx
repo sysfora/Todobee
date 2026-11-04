@@ -106,8 +106,19 @@ export function LandingPage() {
   // leaving it puts the user's own theme back.
   useEffect(() => {
     document.documentElement.classList.remove("dark");
-    if (new URLSearchParams(window.location.search).get("auth_error")) {
-      toast.error("We couldn't sign you in with Google", { description: "Please try again." });
+    const err = new URLSearchParams(window.location.search).get("auth_error");
+    if (err) {
+      let desc = "Please try again.";
+      if (err === "access_denied") {
+        desc = "Google access was denied. If your Google OAuth app is in 'Testing' mode, add your email to 'Test users' in Google Cloud Console.";
+      } else if (err.includes("redirect_uri_mismatch")) {
+        desc = "Redirect URI mismatch. In Google Cloud Console, ensure 'http://localhost:3000/api/auth/google/callback' is in Authorized redirect URIs.";
+      } else if (err === "invalid_state") {
+        desc = "Your login session expired or state token was invalid. Please try clicking sign in again.";
+      } else {
+        desc = `Google sign-in error: ${decodeURIComponent(err)}`;
+      }
+      toast.error("We couldn't sign you in with Google", { description: desc, duration: 8000 });
     }
     return () => applyTheme();
   }, []);
