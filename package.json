@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "postinstall": "npm install --prefix server",
+    "postinstall": "node -e \"if (require('fs').existsSync('server/package.json')) require('child_process').execSync('npm install --prefix server', { stdio: 'inherit' })\"",
     "build": "next build",
     "start": "node scripts/start.mjs",
     "typecheck": "tsc --noEmit && npm run typecheck --prefix server",
