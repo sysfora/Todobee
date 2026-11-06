@@ -87,7 +87,7 @@ export function LandingFooter() {
           </div>
         </div>
         <p className="mt-12 border-t pt-6 text-center text-xs text-muted-foreground">
-          © {year} Todobee. All rights reserved.
+          © {year} Sysfora. Licensed under the GNU AGPL-3.0.
         </p>
         <p className="mt-2 text-center text-xs text-muted-foreground">
           Google and its trademarks are property of Google LLC.

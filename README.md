@@ -1,36 +1,136 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<p align="center">
+  <img src="./public/brand/bee-light.png" width="168" alt="Todobee bee" />
+</p>
 
-## Getting Started
+<h1 align="center">Todobee</h1>
 
-First, run the development server:
+<p align="center">
+  The open-source project management app for teams on Google Workspace.<br />
+  Boards, tasks, and files stay in the admin’s own Google Drive.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Sysfora/Todobee.git"><img src="https://img.shields.io/badge/source-GitHub-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square" alt="AGPL-3.0" /></a>
+  <a href="https://demo.todobee.com"><img src="https://img.shields.io/badge/live%20demo-demo.todobee.com-F5B400?style=flat-square" alt="Live demo" /></a>
+</p>
+
+<p align="center">
+  <a href="https://demo.todobee.com"><strong>Try the live demo</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/Sysfora/Todobee.git"><strong>View the source</strong></a>
+  &nbsp;·&nbsp;
+  <a href="#getting-started"><strong>Self-host</strong></a>
+</p>
+
+<p align="center">
+  <img src="./public/brand/board.webp" width="920" alt="A Todobee project board with sections and task cards" />
+</p>
+
+<br />
+
+## What it is
+
+Todobee is a board for the work a team actually does: projects, sections, tasks, checklists, notes, and files. Sign-in is Google. The workspace content lives in the admin’s Google Drive. Todobee keeps accounts, roles, invites, and a short-lived cache so the board stays fast without reading Drive on every click.
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Clear boards</h3>
+      Drag tasks between sections. Group a board by person, label, priority, or due date, and filter down to the work that matters right now.
+    </td>
+    <td width="50%" valign="top">
+      <h3>A full task in one place</h3>
+      Checklists, notes, files, priorities, due dates, assignees, and colored labels sit on the card. The conversation stays next to the work.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Your Google Drive</h3>
+      Projects, tasks, notes, and files are saved to a Todobee folder in the workspace admin’s Drive. You can take the workspace with you.
+    </td>
+    <td width="50%" valign="top">
+      <h3>A focused team</h3>
+      Admins see the whole workspace. Everyone else sees only the projects they belong to. Invites go out by email and are accepted with Google.
+    </td>
+  </tr>
+</table>
+
+## How the data moves
+
+1. A change is saved to PocketBase immediately, so the board never waits on Drive.
+2. On a timer, every unsynced workspace is copied to that workspace owner’s Google Drive.
+3. The cache stays in PocketBase after a successful sync. Later reads do not call Drive.
+4. Task files upload to Drive when they are attached.
+
+Only files Todobee creates are touched (`drive.file`). The rest of the admin’s Drive stays private.
+
+## Plans
+
+Priced per seat, billed once a year. Every plan starts at 10 seats. Premium and Pro stop at 150. Enterprise does not.
+
+| | Premium | Pro | Enterprise |
+| --- | --- | --- | --- |
+| Per seat / month | $7.99 | $14.99 | $79.99 |
+| Projects, boards, tasks | Unlimited | Unlimited | Unlimited |
+| Notes, files, labels | Yes | Yes | Yes |
+| Email notifications | | Yes | Yes |
+| Dark mode | | Yes | Yes |
+| Multiple admins | | | Yes |
+| Checkout | Stripe | Stripe | Contact us |
+
+## Getting started
+
+You need Node.js, a PocketBase instance you already host, a Google OAuth client, and a Stripe account if you want paid plans.
 
 ```bash
+npm install
+cp .env.example .env
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). The API listens on port 4000 during local development.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`.env.example` is the setup guide. It lists the Google scopes, the OAuth redirect URI, the Stripe webhook events, the yearly price amounts, SMTP, and the Drive sync interval. Fill that file in before you sign in.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| | |
+| --- | --- |
+| App | [http://localhost:3000](http://localhost:3000) |
+| Local demo, no login | `npm run demo` → [http://localhost:5000](http://localhost:5000) |
+| Hosted demo | [https://demo.todobee.com](https://demo.todobee.com) |
 
-## Learn More
+The demo uses the same interface with sample data in the browser. It does not send email or charge a card.
 
-To learn more about Next.js, take a look at the following resources:
+## Docker
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+One image runs the app and the demo.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+docker compose up -d --build
+```
 
-## Deploy on Vercel
+| Port | What it serves |
+| --- | --- |
+| `3000` | Todobee. Point your domain here. |
+| `5000` | The demo. Point `demo.todobee.com` here. |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Set `APP_URL` to the public `https` origin. PocketBase is not started by this container. It uses the `PB_URL` in `.env`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Layout
+
+| Path | |
+| --- | --- |
+| `src/` | Next.js app: landing page, boards, settings |
+| `server/` | API: Google sign-in, Drive sync, Stripe, invites |
+| `demo/` | Same interface, sample data, no accounts |
+| `public/brand/` | Bee, wordmark, and board image |
+| `.env.example` | Every variable, with the permissions and events to configure |
+
+<p align="center">
+  <img src="./public/brand/logo.png" width="280" alt="Todobee" />
+</p>
+
+<p align="center">
+  Copyright © 2026 Sysfora<br />
+  Licensed under the <a href="./LICENSE">GNU Affero General Public License v3.0</a>.
+</p>

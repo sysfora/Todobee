@@ -61,9 +61,6 @@ export function WorkspaceFrame({
     }
     return (
       <AppShell role="admin">
-        <p className="mx-4 mt-4 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground md:mx-8">
-          Sample workspace. Changes stay in this browser. Nothing is emailed, saved to a database, or charged.
-        </p>
         {children}
       </AppShell>
     );

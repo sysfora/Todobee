@@ -2,8 +2,7 @@ import { Eye, Github, Unlock, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
-/** Public source repository. Replace with the real Todobee repository URL. */
-export const GITHUB_URL = "https://github.com/todobee/todobee";
+export const GITHUB_URL = "https://github.com/Sysfora/Todobee.git";
 
 const POINTS = [
   {
