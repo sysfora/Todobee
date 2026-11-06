@@ -55,15 +55,6 @@ Todobee is a board for the work a team actually does: projects, sections, tasks,
   </tr>
 </table>
 
-## How the data moves
-
-1. A change is saved to PocketBase immediately, so the board never waits on Drive.
-2. On a timer, every unsynced workspace is copied to that workspace owner’s Google Drive.
-3. The cache stays in PocketBase after a successful sync. Later reads do not call Drive.
-4. Task files upload to Drive when they are attached.
-
-Only files Todobee creates are touched (`drive.file`). The rest of the admin’s Drive stays private.
-
 ## Plans
 
 Priced per seat, billed once a year. Every plan starts at 10 seats. Premium and Pro stop at 150. Enterprise does not.
