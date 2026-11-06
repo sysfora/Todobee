@@ -67,7 +67,6 @@ Priced per seat, billed once a year. Every plan starts at 10 seats. Premium and 
 | Email notifications | | Yes | Yes |
 | Dark mode | | Yes | Yes |
 | Multiple admins | | | Yes |
-| Checkout | Stripe | Stripe | Contact us |
 
 ## Getting started
 
