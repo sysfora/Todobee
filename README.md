@@ -49,7 +49,7 @@ Todobee is a board for the work a team actually does: projects, sections, tasks,
       Projects, tasks, notes, and files are saved to a Todobee folder in the workspace admin’s Drive. You can take the workspace with you.
     </td>
     <td width="50%" valign="top">
-      <h3>A focused team</h3>
+      <h3>Focused team</h3>
       Admins see the whole workspace. Everyone else sees only the projects they belong to. Invites go out by email and are accepted with Google.
     </td>
   </tr>
