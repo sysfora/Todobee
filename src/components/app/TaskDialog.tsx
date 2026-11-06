@@ -28,6 +28,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { isDemo } from "@/lib/demo-mode";
 import { actions, uid, useAppState } from "@/lib/store";
 import { formatDue, parseISODate, toISODate } from "@/lib/dates";
 import type { Priority, Task } from "@/lib/types";
@@ -729,26 +730,60 @@ function Files({ task }: { task: Task }) {
 
   const add = async (list: FileList | null) => {
     if (!list || list.length === 0) return;
+    const maxBytes = isDemo ? 1_500_000 : 8 * 1024 * 1024;
     const readAsDataUrl = (f: File) =>
       new Promise<string | undefined>((res) => {
-        if (f.size > 2 * 1024 * 1024) return res(undefined);
+        if (f.size > maxBytes) return res(undefined);
         const r = new FileReader();
         r.onload = () => res(typeof r.result === "string" ? r.result : undefined);
         r.onerror = () => res(undefined);
         r.readAsDataURL(f);
       });
-    const added = await Promise.all(
-      Array.from(list).map(async (f) => ({
+    const added = [];
+    for (const f of Array.from(list)) {
+      if (f.size > maxBytes) {
+        toast.error(isDemo ? `${f.name} is too large for this demo` : `${f.name} is larger than 8 MB`);
+        continue;
+      }
+      const dataUrl = await readAsDataUrl(f);
+      if (!dataUrl) {
+        toast.error(`Couldn't read ${f.name}`);
+        continue;
+      }
+      if (isDemo) {
+        added.push({
+          id: uid("f"),
+          name: f.name,
+          size: f.size,
+          mimeType: f.type,
+          userId: state.currentUserId,
+          createdAt: new Date().toISOString(),
+          dataUrl,
+        });
+        continue;
+      }
+      const res = await fetch("/api/files", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: f.name, mimeType: f.type, dataUrl }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { driveUrl?: string; error?: string };
+      if (!res.ok || !body.driveUrl) {
+        toast.error(`Couldn't store ${f.name}`, { description: body.error ?? "Try again in a moment." });
+        continue;
+      }
+      added.push({
         id: uid("f"),
         name: f.name,
         size: f.size,
         mimeType: f.type,
         userId: state.currentUserId,
         createdAt: new Date().toISOString(),
-        dataUrl: await readAsDataUrl(f),
-      })),
-    );
-    actions.updateTask(task.id, { files: [...files, ...added] });
+        driveUrl: body.driveUrl,
+      });
+    }
+    if (added.length) actions.updateTask(task.id, { files: [...files, ...added] });
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -756,7 +791,7 @@ function Files({ task }: { task: Task }) {
     const href = f.driveUrl ?? f.dataUrl;
     if (!href) {
       toast("Download isn't available yet", {
-        description: "Large files can be downloaded once Google Drive is connected.",
+        description: "This file has no stored copy.",
       });
       return;
     }

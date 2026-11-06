@@ -50,9 +50,9 @@ export function decrypt(payload: string) {
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString("utf8");
 }
 
-export function sessionCookie(token: string) {
-  const secure = env.appUrl().startsWith("https://") ? "; Secure" : "";
-  return `tb_session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}${secure}`;
+export function sessionCookie(token: string, secure = env.appUrl().startsWith("https://")) {
+  const flag = secure ? "; Secure" : "";
+  return `tb_session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}${flag}`;
 }
 
 export function clearSessionCookie() {

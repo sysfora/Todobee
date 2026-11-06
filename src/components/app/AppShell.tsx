@@ -22,6 +22,8 @@ import beeDark from "@/assets/todobee-bee-dark.png.asset.json";
 import { cn } from "@/lib/utils";
 import { applyTheme, setDarkAllowed } from "@/lib/theme";
 import { planAllows } from "@/lib/subscription";
+import { accountQuery } from "@/lib/account";
+import { useQuery } from "@tanstack/react-query";
 import { DEFAULT_PREFS, hydrateStore, useAppState, useStoreHydrated } from "@/lib/store";
 import { dueGroup } from "@/lib/task-utils";
 import { formatDue, todayISO } from "@/lib/dates";
@@ -260,6 +262,17 @@ function Header({
   const hydrated = useStoreHydrated();
   const me = state.users.find((u) => u.id === state.currentUserId);
   const signOut = useSignOut();
+  const account = useQuery(accountQuery).data;
+  const switchWorkspace = async (id: string) => {
+    const res = await fetch("/api/workspaces/current", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { home?: string };
+    if (res.ok) window.location.assign(body.home || "/dashboard");
+  };
 
   const dismissKey = `todobee:dismissed:${state.currentUserId}`;
   const [dismissed, setDismissed] = useState<string[]>([]);
@@ -286,7 +299,9 @@ function Header({
       .map((t) => ({ task: t, group: dueGroup(t, today) }))
       .filter((x) => {
         const prefs = { ...DEFAULT_PREFS, ...state.notificationPrefs[state.currentUserId] };
-        return (x.group === "today" && prefs.dueToday) || (x.group === "overdue" && prefs.overdue);
+        if (x.group === "today" && prefs.dueToday) return true;
+        if (x.group === "overdue" && prefs.overdue) return true;
+        return Boolean(prefs.assigned) && (x.group === "upcoming" || x.group === "none");
       })
       .filter((x) => !dismissed.includes(alertKey(x.task.id, x.group, x.task.dueDate)));
   }, [state, hydrated, dismissed]);
@@ -335,7 +350,7 @@ function Header({
                         <p className="text-sm font-medium text-foreground">{task.title}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           <span className={group === "overdue" ? "text-danger" : "text-primary"}>
-                            {group === "overdue" ? "Overdue" : "Due today"}
+                            {group === "overdue" ? "Overdue" : group === "today" ? "Due today" : "Assigned to you"}
                           </span>
                           {task.dueDate && ` · ${formatDue(task.dueDate)}`}
                           {project && ` · ${project.name}`}
@@ -375,6 +390,20 @@ function Header({
               <span className="text-xs font-normal text-muted-foreground">{me?.email}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            {(account?.workspaces?.length ?? 0) > 1 && (
+              <>
+                {account!.workspaces.map((workspace) => (
+                  <DropdownMenuItem
+                    key={workspace.id}
+                    disabled={workspace.id === account!.workspace.id}
+                    onSelect={() => void switchWorkspace(workspace.id)}
+                  >
+                    {workspace.name}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem asChild>
               <Link to="/settings" search={{ section: "profile" }}>
                 <UserRound className="mr-2 h-4 w-4" /> Profile

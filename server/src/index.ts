@@ -9,6 +9,7 @@ import {
   findUserBy,
   initPocketBase,
   membershipFor,
+  membershipsFor,
   pb,
   type PbMember,
   type PbUser,
@@ -18,8 +19,9 @@ import { accessTokenFor, exchangeCode, googleAuthUrl, googleProfile, rememberAcc
 import { downloadFile, ensureFolder, uploadFile } from "./drive.js";
 import { startDriveSync, stopDriveSync, syncPendingWorkspaces } from "./drive-sync.js";
 import { applyStripeSubscription, createCheckout, getStripe, updateSubscription } from "./billing.js";
-import { claimIdentity, fileIds, initialWorkspaceState, mergeState, present, seatProblem, type Viewer } from "./state.js";
-import { sendInviteEmail } from "./mail.js";
+import { claimIdentity, canReadFile, fileIds, initialWorkspaceState, mergeState, present, seatProblem, type Viewer } from "./state.js";
+import { sendAssignmentEmail, sendInviteEmail, type MailResult } from "./mail.js";
+import { withWorkspaceLock } from "./lock.js";
 import type { AppState, Invite } from "./demo/types.js";
 import type { PlanId } from "./demo/subscription.js";
 import { clampSeats, MIN_SEATS } from "./demo/subscription.js";
@@ -35,11 +37,11 @@ function safeNext(value: unknown) {
 
 async function loadSession(cookie: string | undefined) {
   const token = readCookie(cookie, "tb_session");
-  const session = openJson<{ uid: string }>(token);
+  const session = openJson<{ uid: string; wid?: string }>(token);
   if (!session?.uid) return null;
   try {
     const user = await pb().collection("users").getOne<PbUser>(session.uid);
-    const member = await membershipFor(user.id);
+    const member = await membershipFor(user.id, session.wid);
     const workspace = member
       ? await pb().collection("workspaces").getOne<PbWorkspace>(member.workspace)
       : null;
@@ -68,7 +70,14 @@ function billingOf(workspace: PbWorkspace) {
   };
 }
 
-function accountPayload(user: PbUser, member: PbMember, workspace: PbWorkspace, adminName: string, driveConnected: boolean) {
+function accountPayload(
+  user: PbUser,
+  member: PbMember,
+  workspace: PbWorkspace,
+  adminName: string,
+  driveConnected: boolean,
+  workspaces: { id: string; name: string; role: "admin" | "member" }[],
+) {
   return {
     userId: user.id,
     name: user.name || user.email,
@@ -77,6 +86,7 @@ function accountPayload(user: PbUser, member: PbMember, workspace: PbWorkspace, 
     role: member.role,
     adminName,
     driveConnected,
+    workspaces,
     workspace: {
       id: workspace.id,
       name: workspace.name,
@@ -113,33 +123,36 @@ app.get("/api/auth/google", (c) => {
   if (!env.googleClientId() || !env.googleClientSecret()) {
     return c.json({ error: "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET." }, 500);
   }
-  const state = sealJson({ next: safeNext(c.req.query("next")) }, 600);
-  const authUrl = googleAuthUrl(state);
-  console.log(`[Google OAuth] Redirecting to Google auth with redirect_uri: ${env.appUrl()}/api/auth/google/callback`);
+  const origin = env.requestOrigin((name) => c.req.header(name), c.req.url);
+  const state = sealJson({ next: safeNext(c.req.query("next")), origin }, 600);
+  const authUrl = googleAuthUrl(state, origin);
+  console.log(`[Google OAuth] Redirecting to Google auth with redirect_uri: ${origin}/api/auth/google/callback`);
   return c.redirect(authUrl);
 });
 
 app.get("/api/auth/google/callback", async (c) => {
   const oauthError = c.req.query("error");
   const oauthDesc = c.req.query("error_description");
+  const fallbackOrigin = env.requestOrigin((name) => c.req.header(name), c.req.url);
   if (oauthError) {
     console.error(`[Google OAuth Error] ${oauthError}: ${oauthDesc || "No description provided by Google"}`);
-    return c.redirect(`${env.appUrl()}/?auth_error=${encodeURIComponent(oauthError)}`);
+    return c.redirect(`${fallbackOrigin}/?auth_error=${encodeURIComponent(oauthError)}`);
   }
   const code = c.req.query("code") || "";
   const rawState = c.req.query("state");
-  const state = openJson<{ next: string }>(rawState);
+  const state = openJson<{ next: string; origin?: string }>(rawState);
+  const origin = state?.origin || fallbackOrigin;
   if (!code || !state) {
     console.error("[Google OAuth Error] Missing authorization code or invalid state token", {
       hasCode: Boolean(code),
       hasState: Boolean(rawState),
       stateVerified: Boolean(state),
     });
-    return c.redirect(`${env.appUrl()}/?auth_error=invalid_state`);
+    return c.redirect(`${origin}/?auth_error=invalid_state`);
   }
   try {
     console.log("[Google OAuth] Exchanging code for tokens...");
-    const tokens = await exchangeCode(code);
+    const tokens = await exchangeCode(code, origin);
     console.log("[Google OAuth] Fetching user profile...");
     const profile = await googleProfile(tokens.access_token!);
     console.log(`[Google OAuth] User authenticated: ${profile.email}`);
@@ -169,48 +182,61 @@ app.get("/api/auth/google/callback", async (c) => {
       });
     }
     rememberAccess(user.id, tokens.access_token!, tokens.expires_in);
-    let member = await membershipFor(user.id);
-    if (!member) member = await claimWorkspace(user);
+    const joined = await acceptInvites(user);
+    let member = joined[0] || (await membershipFor(user.id));
     if (!member) member = await createWorkspace(user);
     const workspace = await pb().collection("workspaces").getOne<PbWorkspace>(member.workspace);
     const home = member.role === "admin" ? "/dashboard" : "/projects";
     const dest = workspace.subscribedAt ? safeNext(state.next || home) : "/subscribe";
-    c.header("set-cookie", sessionCookie(sealJson({ uid: user.id }, 60 * 60 * 24 * 30)));
+    c.header("set-cookie", sessionCookie(sealJson({ uid: user.id, wid: member.workspace }, 60 * 60 * 24 * 30), origin.startsWith("https://")));
     console.log(`[Google OAuth] Login successful for ${user.email}, redirecting to ${dest}`);
-    return c.redirect(`${env.appUrl()}${dest}`);
+    return c.redirect(`${origin}${dest}`);
   } catch (error) {
     console.error("[Google OAuth Callback Error]:", error);
     const msg = error instanceof Error ? error.message : "server_error";
-    return c.redirect(`${env.appUrl()}/?auth_error=${encodeURIComponent(msg.slice(0, 60))}`);
+    return c.redirect(`${origin}/?auth_error=${encodeURIComponent(msg.slice(0, 60))}`);
   }
 });
 
-async function claimWorkspace(user: PbUser): Promise<PbMember | null> {
+async function acceptInvites(user: PbUser): Promise<PbMember[]> {
+  const existing = new Set((await membershipsFor(user.id)).map((member) => member.workspace));
   const rows = await pb().collection("workspaces").getFullList<PbWorkspace>();
+  const hits: { workspace: PbWorkspace; invitedAt: string }[] = [];
+  const email = user.email.toLowerCase();
   for (const workspace of rows) {
-    if (!workspace.cache) continue;
-    const claimed = claimIdentity(workspace.cache, {
+    if (!workspace.cache || existing.has(workspace.id)) continue;
+    const invite = (workspace.cache.invites ?? []).find(
+      (item) => item.email.toLowerCase() === email && new Date(item.expiresAt).getTime() > Date.now(),
+    );
+    const listed = workspace.cache.users.some((person) => person.email.toLowerCase() === email);
+    if (!invite && !listed) continue;
+    hits.push({ workspace, invitedAt: invite?.invitedAt ?? "" });
+  }
+  hits.sort((a, b) => b.invitedAt.localeCompare(a.invitedAt));
+  const joined: PbMember[] = [];
+  for (const hit of hits) {
+    const claimed = claimIdentity(hit.workspace.cache!, {
       id: user.id,
       name: user.name || user.email,
       email: user.email,
       avatar: user.avatar,
     });
     if (!claimed) continue;
-    let role = claimed.role;
-    if (workspace.owner === user.id) role = "admin";
-    else if (role === "admin" && workspace.plan !== "enterprise") role = "member";
-    await pb().collection("workspaces").update(workspace.id, {
+    const role = hit.workspace.owner === user.id ? "admin" : claimed.role;
+    await pb().collection("workspaces").update(hit.workspace.id, {
       cache: claimed.state,
       driveSynced: false,
-      cacheRevision: (workspace.cacheRevision ?? 0) + 1,
+      cacheRevision: (hit.workspace.cacheRevision ?? 0) + 1,
     });
-    return await pb().collection("members").create<PbMember>({
-      workspace: workspace.id,
-      user: user.id,
-      role,
-    });
+    joined.push(
+      await pb().collection("members").create<PbMember>({
+        workspace: hit.workspace.id,
+        user: user.id,
+        role,
+      }),
+    );
   }
-  return null;
+  return joined;
 }
 
 async function createWorkspace(user: PbUser) {
@@ -246,6 +272,13 @@ app.get("/api/me", async (c) => {
   const session = await loadSession(c.req.header("cookie"));
   if (!session?.member || !session.workspace) return c.json({ error: "You're signed out." }, 401);
   const adminName = await adminNameFor(session.workspace, session.member, session.user);
+  const memberships = await membershipsFor(session.user.id);
+  const workspaces = await Promise.all(
+    memberships.map(async (membership) => {
+      const row = await pb().collection("workspaces").getOne<PbWorkspace>(membership.workspace);
+      return { id: row.id, name: row.name, role: membership.role };
+    }),
+  );
   return c.json(
     accountPayload(
       session.user,
@@ -253,8 +286,24 @@ app.get("/api/me", async (c) => {
       session.workspace,
       adminName,
       await driveReady(session.workspace),
+      workspaces,
     ),
   );
+});
+
+app.post("/api/workspaces/current", async (c) => {
+  const session = await loadSession(c.req.header("cookie"));
+  if (!session) return c.json({ error: "You're signed out." }, 401);
+  const body = (await c.req.json().catch(() => null)) as { id?: string } | null;
+  const memberships = await membershipsFor(session.user.id);
+  const member = memberships.find((item) => item.workspace === body?.id);
+  if (!member) return c.json({ error: "You aren't in that workspace." }, 404);
+  const origin = env.requestOrigin((name) => c.req.header(name), c.req.url);
+  c.header(
+    "set-cookie",
+    sessionCookie(sealJson({ uid: session.user.id, wid: member.workspace }, 60 * 60 * 24 * 30), origin.startsWith("https://")),
+  );
+  return c.json({ ok: true, home: member.role === "admin" ? "/dashboard" : "/projects" });
 });
 
 app.get("/api/workspace", async (c) => {
@@ -269,6 +318,7 @@ app.get("/api/workspace", async (c) => {
   });
   return c.json({
     state: present(cache, viewerOf(session.user, session.member), billingOf(workspace)),
+    revision: workspace.cacheRevision ?? 0,
     driveConnected: await driveReady(workspace),
   });
 });
@@ -276,74 +326,125 @@ app.get("/api/workspace", async (c) => {
 app.put("/api/workspace", async (c) => {
   const session = await loadSession(c.req.header("cookie"));
   if (!session?.member || !session.workspace) return c.json({ error: "You're signed out." }, 401);
-  const incoming = (await c.req.json().catch(() => null)) as AppState | null;
+  const body = (await c.req.json().catch(() => null)) as { state?: AppState; revision?: number } | AppState | null;
+  const incoming = body && "state" in body ? body.state : (body as AppState | null);
+  const revision = body && "state" in body ? Number(body.revision) : Number.NaN;
   if (!incoming?.projects || !incoming.tasks || !incoming.users) {
     return c.json({ error: "That workspace file isn't valid." }, 400);
   }
-  let workspace = session.workspace;
-  const stored = workspace.cache || incoming;
-  const viewer = viewerOf(session.user, session.member);
-  let billing = billingOf(workspace);
-
-  if (viewer.role === "admin") {
-    const wanted = Math.round(Number(incoming.workspace?.seats));
-    if (wanted && wanted !== workspace.seats) {
-      const preview = mergeState(stored, incoming, viewer, { ...billing, seats: wanted });
-      const problem = seatProblem(preview, wanted, billing.plan);
-      if (problem) return c.json({ error: problem }, 400);
-      try {
-        if (workspace.stripeSubscriptionId) {
-          workspace = await updateSubscription(workspace, billing.plan, wanted);
-        } else {
-          workspace = await pb().collection("workspaces").update<PbWorkspace>(workspace.id, { seats: wanted });
-        }
-        billing = billingOf(workspace);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Stripe couldn't update the seats.";
-        return c.json({ error: message }, 402);
+  const origin = env.requestOrigin((name) => c.req.header(name), c.req.url);
+  try {
+    return await withWorkspaceLock(session.workspace.id, async () => {
+      let workspace = await pb().collection("workspaces").getOne<PbWorkspace>(session.workspace!.id);
+      const viewer = viewerOf(session.user, session.member!);
+      let billing = billingOf(workspace);
+      const stored = workspace.cache || incoming;
+      const currentRevision = workspace.cacheRevision ?? 0;
+      if (!Number.isFinite(revision) || revision !== currentRevision) {
+        return c.json(
+          {
+            error: "This workspace changed somewhere else.",
+            state: present(stored, viewer, billing),
+            revision: currentRevision,
+          },
+          409,
+        );
       }
-    }
-  }
+      if (
+        stored.users.length > 0 &&
+        incoming.users.length === 0 &&
+        incoming.projects.length === 0 &&
+        incoming.tasks.length === 0
+      ) {
+        return c.json({ error: "The workspace didn't load, so this empty copy wasn't saved." }, 409);
+      }
 
-  const merged = stripFiles(mergeState(stored, incoming, viewer, billing), stored);
-  const removed = [...fileIds(stored)].filter((id) => !fileIds(merged).has(id));
-  const pendingDriveDeletes = [...new Set([...(workspace.pendingDriveDeletes ?? []), ...removed])];
-  await pb().collection("workspaces").update(workspace.id, {
-    name: merged.workspace.name,
-    cache: merged,
-    cacheRevision: (workspace.cacheRevision ?? 0) + 1,
-    driveSynced: false,
-    pendingDriveDeletes,
-  });
-  await emailNewInvites(stored.invites ?? [], merged.invites ?? [], {
-    workspaceName: merged.workspace.name,
-    inviterName: viewer.name,
-  });
-  const syncedFiles: Record<string, string> = {};
-  for (const task of merged.tasks ?? []) {
-    for (const file of task.files ?? []) {
-      if (file.driveUrl) syncedFiles[file.id] = file.driveUrl;
-    }
+      if (viewer.role === "admin") {
+        const wanted = Math.round(Number(incoming.workspace?.seats));
+        if (wanted && wanted !== workspace.seats) {
+          const preview = mergeState(stored, incoming, viewer, { ...billing, seats: wanted });
+          const problem = seatProblem(preview, wanted, billing.plan);
+          if (problem) return c.json({ error: problem }, 400);
+          try {
+            if (workspace.stripeSubscriptionId) {
+              workspace = await updateSubscription(workspace, billing.plan, wanted);
+            } else {
+              workspace = await pb().collection("workspaces").update<PbWorkspace>(workspace.id, { seats: wanted });
+            }
+            billing = billingOf(workspace);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Stripe couldn't update the seats.";
+            return c.json({ error: message }, 402);
+          }
+        }
+      }
+
+      const merged = stripFiles(mergeState(stored, incoming, viewer, billing), stored);
+      const removed = [...fileIds(stored)].filter((id) => !fileIds(merged).has(id));
+      const pendingDriveDeletes = [...new Set([...(workspace.pendingDriveDeletes ?? []), ...removed])];
+      const nextRevision = currentRevision + 1;
+      await pb().collection("workspaces").update(workspace.id, {
+        name: merged.workspace.name,
+        cache: merged,
+        cacheRevision: nextRevision,
+        driveSynced: false,
+        pendingDriveDeletes,
+      });
+      const emails = [
+        ...(await emailNewInvites(stored.invites ?? [], merged.invites ?? [], {
+          workspaceName: merged.workspace.name,
+          inviterName: viewer.name,
+          origin,
+        })),
+        ...(await emailNewAssignments(stored, merged, viewer, billing.plan, origin)),
+      ];
+      const syncedFiles: Record<string, string> = {};
+      for (const task of merged.tasks ?? []) {
+        for (const file of task.files ?? []) {
+          if (file.driveUrl) syncedFiles[file.id] = file.driveUrl;
+        }
+      }
+      return c.json({ ok: true, pendingSync: true, syncedFiles, revision: nextRevision, emails });
+    });
+  } catch (error) {
+    console.error(error);
+    return c.json({ error: "Couldn't save the workspace." }, 500);
   }
-  return c.json({ ok: true, pendingSync: true, syncedFiles });
 });
 
 async function emailNewInvites(
   previous: Invite[],
   next: Invite[],
-  meta: { workspaceName: string; inviterName: string },
+  meta: { workspaceName: string; inviterName: string; origin: string },
 ) {
   const prior = new Map(previous.map((invite) => [invite.id, invite.expiresAt]));
   const pending = next.filter((invite) => prior.get(invite.id) !== invite.expiresAt);
-  await Promise.all(
-    pending.map(async (invite) => {
-      try {
-        await sendInviteEmail({ invite, ...meta });
-      } catch (error) {
-        console.error(`Invite email to ${invite.email} failed`, error);
-      }
-    }),
-  );
+  return Promise.all(pending.map((invite) => sendInviteEmail({ invite, ...meta })));
+}
+
+async function emailNewAssignments(previous: AppState, next: AppState, viewer: Viewer, plan: PlanId, origin: string) {
+  if (plan !== "pro" && plan !== "enterprise") return [];
+  const before = new Map(previous.tasks.map((task) => [task.id, new Set(task.assigneeIds)]));
+  const results: MailResult[] = [];
+  for (const task of next.tasks) {
+    const prior = before.get(task.id) ?? new Set<string>();
+    for (const userId of task.assigneeIds) {
+      if (prior.has(userId) || userId === viewer.id) continue;
+      const person = next.users.find((user) => user.id === userId);
+      const prefs = next.notificationPrefs?.[userId];
+      if (!person?.email || !prefs?.email || prefs.assigned === false) continue;
+      results.push(
+        await sendAssignmentEmail({
+          to: person.email,
+          name: person.name || person.email,
+          taskTitle: task.title || "a task",
+          workspaceName: next.workspace.name,
+          origin,
+        }),
+      );
+    }
+  }
+  return results;
 }
 
 function stripFiles(state: AppState, stored?: AppState): AppState {
@@ -395,9 +496,11 @@ app.post("/api/files", async (c) => {
 
 app.get("/api/files/:id", async (c) => {
   const session = await loadSession(c.req.header("cookie"));
-  if (!session?.workspace?.cache) return c.json({ error: "You're signed out." }, 401);
+  if (!session?.workspace?.cache || !session.member) return c.json({ error: "You're signed out." }, 401);
   const id = c.req.param("id");
-  if (!fileIds(session.workspace.cache).has(id)) return c.json({ error: "File not found." }, 404);
+  if (!canReadFile(session.workspace.cache, viewerOf(session.user, session.member), id)) {
+    return c.json({ error: "File not found." }, 404);
+  }
   try {
     const owner = await pb().collection("users").getOne<PbUser>(session.workspace.owner);
     const token = await accessTokenFor(owner);
@@ -426,7 +529,8 @@ app.post("/api/billing/checkout", async (c) => {
   }
   const seats = clampSeats(Number(body?.seats) || MIN_SEATS, plan);
   try {
-    const url = await createCheckout(session.workspace, session.user.email, plan, seats);
+    const origin = env.requestOrigin((name) => c.req.header(name), c.req.url);
+    const url = await createCheckout(session.workspace, session.user.email, plan, seats, origin);
     return c.json({ url });
   } catch (error) {
     return c.json({ error: error instanceof Error ? error.message : "Stripe checkout failed." }, 502);

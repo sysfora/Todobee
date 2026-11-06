@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { isDemo } from "@/lib/demo-mode";
 import { actions, useAppState } from "@/lib/store";
 import type { Role, User } from "@/lib/types";
 import {
@@ -75,10 +76,12 @@ export function UserDialog({
         { addSeat },
       );
       if (err) return setError(err);
-      toast.success(`Invite sent to ${parsed.data.email}`, {
-        description: addSeat
-          ? `Your subscription now has ${workspace.seats + 1} seats.`
-          : "It stays open for 30 days and holds a seat until then.",
+      toast.success(`Invite saved for ${parsed.data.email}`, {
+        description: isDemo
+          ? "Saved in this browser only. No email is sent."
+          : addSeat
+            ? `Your subscription now has ${workspace.seats + 1} seats.`
+            : "It stays open for 30 days and holds a seat until then.",
       });
       return onOpenChange(false);
     }

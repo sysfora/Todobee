@@ -15,6 +15,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { BeeLogo, HELP_EMAIL, LandingFooter, LandingNav } from "@/components/landing/LandingChrome";
+import { DEMO_ORIGIN } from "@/lib/demo-mode";
 import boardShot from "@/assets/todobee-marketing-board.webp.asset.json";
 import { PricingSection } from "@/components/landing/PricingSection";
 import { OpenSourceSection } from "@/components/landing/OpenSourceSection";
@@ -166,7 +167,7 @@ export function LandingPage() {
               Get started with Google
             </SignInButton>
             <a
-              href="#demo"
+              href={DEMO_ORIGIN}
               className={cn(buttonVariants({ size: "lg", variant: "outline" }), "px-6")}
             >
               Live demo (No signup)

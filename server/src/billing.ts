@@ -53,7 +53,7 @@ export async function applyStripeSubscription(sub: Stripe.Subscription, fallback
   });
 }
 
-export async function createCheckout(workspace: PbWorkspace, email: string, plan: PlanId, seats: number) {
+export async function createCheckout(workspace: PbWorkspace, email: string, plan: PlanId, seats: number, origin = env.appUrl()) {
   const stripeClient = getStripe();
   const price = priceFor(plan);
   if (!stripeClient || !price) {
@@ -73,8 +73,8 @@ export async function createCheckout(workspace: PbWorkspace, email: string, plan
     customer,
     client_reference_id: workspace.id,
     line_items: [{ price, quantity: seats }],
-    success_url: `${env.appUrl()}/billing/return?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${env.appUrl()}/subscribe`,
+    success_url: `${origin}/billing/return?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/subscribe`,
     allow_promotion_codes: true,
     metadata: { workspaceId: workspace.id, plan },
     subscription_data: { metadata: { workspaceId: workspace.id, plan } },

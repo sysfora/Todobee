@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from "react";
-import { createSeed, CURRENT_USER_ID } from "./seed";
 import type {
   AppState,
   Invite,
@@ -31,6 +30,8 @@ import {
   type AccountRole,
 } from "./permissions";
 import { playCompleteSound } from "./sounds";
+import { rebaseWorkspace } from "./rebase";
+import { isDemo, loadDemoBoard, saveDemoBoard } from "./demo-mode";
 import { toast } from "sonner";
 
 export const DEFAULT_PREFS: NotificationPrefs = {
@@ -55,6 +56,8 @@ function emptyState(): AppState {
 }
 
 let state: AppState = emptyState();
+let baseState: AppState = emptyState();
+let baseRevision = 0;
 let hydrated = false;
 let remoteReady = false;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -72,8 +75,9 @@ function persist() {
   if (!remoteReady || typeof window === "undefined") return;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    void pushState();
-  }, 700);
+    if (isDemo) saveDemoBoard(state);
+    else void pushState();
+  }, isDemo ? 200 : 700);
 }
 
 function applySyncedFiles(snapshot: AppState, syncedFiles?: Record<string, string>): AppState {
@@ -93,31 +97,58 @@ function applySyncedFiles(snapshot: AppState, syncedFiles?: Record<string, strin
   return changed ? { ...snapshot, tasks } : snapshot;
 }
 
-async function pushState() {
+type MailNotice = { kind: "invite" | "assignment"; to: string; ok: boolean; error?: string };
+
+function rememberSaved(next: AppState, revision: number) {
+  state = next;
+  baseState = structuredClone(next);
+  baseRevision = revision;
+}
+
+function reportMail(emails: MailNotice[] | undefined) {
+  for (const mail of emails ?? []) {
+    if (mail.kind === "invite" && mail.ok) toast.success(`Emailed ${mail.to}`);
+    if (!mail.ok) toast.error(`Couldn't email ${mail.to}`, { description: mail.error });
+  }
+}
+
+async function pushState(attempt = 0) {
+  if (!remoteReady) return;
   if (pushing) {
     pushAgain = true;
     return;
   }
   pushing = true;
+  const sent = state;
+  let retryMerged = false;
   try {
     const res = await fetch("/api/workspace", {
       method: "PUT",
       credentials: "include",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(state),
+      body: JSON.stringify({ state: sent, revision: baseRevision }),
     });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      state?: AppState;
+      revision?: number;
+      syncedFiles?: Record<string, string>;
+      emails?: MailNotice[];
+    };
+    if (res.status === 409 && body.state && typeof body.revision === "number" && attempt < 4) {
+      const merged = rebaseWorkspace(baseState, state, migrate(body.state));
+      rememberSaved(merged, body.revision);
+      emit();
+      retryMerged = JSON.stringify(merged) !== JSON.stringify(migrate(body.state));
+    } else if (!res.ok) {
       toast.error("Couldn't save your changes", {
         description: body.error ?? "Check your connection and try again.",
       });
     } else {
-      const body = (await res.json().catch(() => ({}))) as { syncedFiles?: Record<string, string> };
-      const next = applySyncedFiles(state, body.syncedFiles);
-      if (next !== state) {
-        state = next;
-        emit();
-      }
+      const next = applySyncedFiles(state === sent ? sent : state, body.syncedFiles);
+      rememberSaved(next, typeof body.revision === "number" ? body.revision : baseRevision);
+      if (next !== sent) emit();
+      reportMail(body.emails);
     }
   } catch {
     toast.error("Couldn't save your changes", {
@@ -125,10 +156,14 @@ async function pushState() {
     });
   } finally {
     pushing = false;
-    if (pushAgain) {
-      pushAgain = false;
-      void pushState();
-    }
+  }
+  if (retryMerged) {
+    await pushState(attempt + 1);
+    return;
+  }
+  if (pushAgain) {
+    pushAgain = false;
+    void pushState();
   }
 }
 
@@ -165,6 +200,17 @@ let pendingRole: AccountRole | undefined;
 
 export function hydrateStore(role?: AccountRole) {
   if (role) pendingRole = role;
+  if (isDemo && !hydrated && !inflight) {
+    inflight = Promise.resolve().then(() => {
+      state = loadDemoBoard(migrate);
+      if (pendingRole) state = withSignedInRole(state, pendingRole);
+      baseState = structuredClone(state);
+      remoteReady = true;
+      hydrated = true;
+      emit();
+    });
+    return inflight;
+  }
   if (hydrated) {
     if (role) actions.syncSignedInRole(role);
     return Promise.resolve();
@@ -174,15 +220,25 @@ export function hydrateStore(role?: AccountRole) {
       try {
         const res = await fetch("/api/workspace", { credentials: "include" });
         if (res.ok) {
-          const data = (await res.json()) as { state: AppState };
+          const data = (await res.json()) as { state: AppState; revision?: number };
           state = migrate(data.state);
+          if (pendingRole) state = withSignedInRole(state, pendingRole);
+          baseState = structuredClone(state);
+          baseRevision = data.revision ?? 0;
+          remoteReady = true;
+        } else {
+          remoteReady = false;
+          toast.error("Couldn't load the workspace", {
+            description: "Your changes stay on this page until the workspace loads.",
+          });
         }
       } catch {
-        state = emptyState();
+        remoteReady = false;
+        toast.error("Couldn't load the workspace", {
+          description: "Your changes stay on this page until the workspace loads.",
+        });
       }
-      if (pendingRole) state = withSignedInRole(state, pendingRole);
       hydrated = true;
-      remoteReady = true;
       emit();
     })();
   }
@@ -244,22 +300,6 @@ export const actions = {
   syncSignedInRole(role: AccountRole) {
     const next = withSignedInRole(state, role);
     if (next !== state) set(() => next);
-  },
-  resetDemo() {
-    if (!isAdminUser(state)) return;
-    const me = state.users.find((u) => u.id === state.currentUserId);
-    const billing = state.workspace;
-    set(() => {
-      const seed = createSeed();
-      if (!me) return seed;
-      const next = JSON.parse(JSON.stringify(seed).split(CURRENT_USER_ID).join(me.id)) as AppState;
-      next.currentUserId = me.id;
-      next.users = next.users.map((u) =>
-        u.id === me.id ? { ...u, name: me.name, email: me.email, avatar: me.avatar, role: "Admin" } : u,
-      );
-      next.workspace = { ...next.workspace, ...billing, name: billing.name || next.workspace.name };
-      return next;
-    });
   },
 
   // Projects

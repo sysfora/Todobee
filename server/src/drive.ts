@@ -139,27 +139,6 @@ export async function deleteFile(token: string, fileId: string) {
   }
 }
 
-/** Remove any unexpected README file from the Todobee Drive folder if one exists */
-export async function cleanUnexpectedReadmeFiles(token: string, folderId: string) {
-  if (!token || !folderId) return;
-  try {
-    const q = encodeURIComponent(
-      `'${folderId}' in parents and trashed = false and (name contains 'readme' or name contains 'README')`,
-    );
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`, {
-      headers: { authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return;
-    const data = (await res.json()) as { files?: { id: string; name: string }[] };
-    for (const file of data.files ?? []) {
-      await deleteFile(token, file.id).catch(() => undefined);
-      console.log(`[Google Drive] Removed readme file: ${file.name}`);
-    }
-  } catch {
-    // Ignore cleanup errors
-  }
-}
-
 export function missingDriveFile(error: unknown) {
   return error instanceof Error && error.message.startsWith("Google Drive 404");
 }

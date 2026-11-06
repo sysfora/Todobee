@@ -1,11 +1,5 @@
-import {
-  cleanUnexpectedReadmeFiles,
-  deleteFile,
-  ensureFolder,
-  isDriveQuotaError,
-  syncDrive,
-  uploadFile,
-} from "./drive.js";
+import { deleteFile, ensureFolder, isDriveQuotaError, syncDrive, uploadFile } from "./drive.js";
+import { withWorkspaceLock } from "./lock.js";
 import { env } from "./env.js";
 import { accessTokenFor } from "./google.js";
 import { pb, type PbUser, type PbWorkspace } from "./pb.js";
@@ -41,6 +35,10 @@ function hasPendingFileUploads(state: AppState | undefined) {
 }
 
 async function flushWorkspace(workspace: PbWorkspace): Promise<{ synced: boolean; operations: number }> {
+  return withWorkspaceLock(workspace.id, () => flushWorkspaceUnlocked(workspace));
+}
+
+async function flushWorkspaceUnlocked(workspace: PbWorkspace): Promise<{ synced: boolean; operations: number }> {
   if (!workspace.cache) return { synced: false, operations: 0 };
   let operations = 0;
   const revision = workspace.cacheRevision ?? 0;
@@ -112,9 +110,6 @@ async function flushWorkspace(workspace: PbWorkspace): Promise<{ synced: boolean
   );
   operations += 1;
   if (!uploaded.ok || !uploaded.driveFileId) return { synced: false, operations };
-
-  // Ensure no readme file exists in the Todobee Drive folder
-  await cleanUnexpectedReadmeFiles(token, uploaded.driveFolderId);
 
   const fresh = await pb().collection("workspaces").getOne<PbWorkspace>(workspace.id);
   const mergedCache = applyUploadedFiles(fresh.cache || currentCache, uploadedUrls);

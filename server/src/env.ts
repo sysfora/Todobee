@@ -30,6 +30,14 @@ load(path.resolve("../.env"));
 
 export const env = {
   appUrl: () => (process.env.APP_URL || "http://localhost:3000").replace(/\/+$/, ""),
+  requestOrigin: (header: (name: string) => string | undefined, url = "") => {
+    const host = (header("x-forwarded-host") || header("host") || "").split(",")[0].trim();
+    if (!host) return (process.env.APP_URL || "http://localhost:3000").replace(/\/+$/, "");
+    const forwarded = (header("x-forwarded-proto") || "").split(",")[0].trim();
+    const local = host.startsWith("localhost") || host.startsWith("127.0.0.1");
+    const proto = forwarded || (url.startsWith("https://") ? "https" : local ? "http" : "https");
+    return `${proto}://${host}`;
+  },
   port: () => Number(process.env.PORT || 4000),
   pbUrl: () => (process.env.PB_URL || "").replace(/\/+$/, ""),
   pbEmail: () => process.env.PB_ADMIN_EMAIL || "",

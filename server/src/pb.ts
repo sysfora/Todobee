@@ -59,14 +59,20 @@ export async function findUserBy(field: "email" | "googleSub", value: string) {
   }
 }
 
-export async function membershipFor(userId: string) {
+export async function membershipsFor(userId: string) {
   try {
     return await pb()
       .collection("members")
-      .getFirstListItem<PbMember>(`user="${quote(userId)}"`, { expand: "workspace" });
+      .getFullList<PbMember>({ filter: `user="${quote(userId)}"`, expand: "workspace" });
   } catch {
-    return null;
+    return [];
   }
+}
+
+export async function membershipFor(userId: string, workspaceId?: string) {
+  const rows = await membershipsFor(userId);
+  if (workspaceId) return rows.find((row) => row.workspace === workspaceId) ?? null;
+  return rows[0] ?? null;
 }
 
 async function ensureSchema(db: PocketBase) {
@@ -137,9 +143,14 @@ async function ensureSchema(db: PocketBase) {
     workspacesId = created.id;
   }
 
+  const memberIndex = "CREATE UNIQUE INDEX `idx_members_workspace_user` ON `members` (`workspace`, `user`)";
+  let members: { id: string; indexes?: string[] } | null = null;
   try {
-    await db.collections.getOne("members");
+    members = await db.collections.getOne("members");
   } catch {
+    members = null;
+  }
+  if (!members) {
     await db.collections.create({
       name: "members",
       type: "base",
@@ -148,8 +159,15 @@ async function ensureSchema(db: PocketBase) {
         { name: "user", type: "relation", required: true, collectionId: usersId, maxSelect: 1 },
         { name: "role", type: "select", maxSelect: 1, required: true, values: ["admin", "member"] },
       ],
-      indexes: ["CREATE UNIQUE INDEX `idx_members_user` ON `members` (`user`)"],
+      indexes: [memberIndex],
     });
+  } else {
+    const indexes = members.indexes ?? [];
+    const current = indexes.some((index) => index.includes("idx_members_workspace_user"));
+    const blocksSecondWorkspace = indexes.some((index) => index.includes("idx_members_user"));
+    if (!current || blocksSecondWorkspace) {
+      await db.collections.update(members.id, { indexes: [memberIndex] });
+    }
   }
 }
 

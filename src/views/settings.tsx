@@ -4,10 +4,10 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Check, Download, Lock, Monitor, Moon, Pencil, Sun, Trash2, Upload } from "lucide-react";
-import { passwordChangeError } from "@/lib/password";
 import { getTheme, setTheme, type Theme } from "@/lib/theme";
 import { playCompleteSound, setSoundsEnabled, soundsEnabled } from "@/lib/sounds";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { isDemo } from "@/lib/demo-mode";
 import { actions, DEFAULT_PREFS, getState, useAppState } from "@/lib/store";
 import { SWATCHES, labelVar, swatchName, type Swatch } from "@/lib/colors";
 import {
@@ -267,58 +267,8 @@ function ProfileSection() {
         />
         <Button type="submit">Save</Button>
       </form>
-      <PasswordForm />
+      <p className="mt-6 text-sm text-muted-foreground">You sign in with Google, so there is no separate password.</p>
     </Card>
-  );
-}
-
-function PasswordForm() {
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  return (
-    <form
-      className="mt-8 max-w-sm space-y-3 border-t pt-6"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const err = passwordChangeError(current, next, confirm);
-        setError(err);
-        if (err) return;
-        setCurrent("");
-        setNext("");
-        setConfirm("");
-        toast.success("Password updated");
-      }}
-    >
-      <h3 className="font-semibold text-foreground">Change password</h3>
-      {(
-        [
-          ["pw-current", "Current password", current, setCurrent, "current-password"],
-          ["pw-new", "New password", next, setNext, "new-password"],
-          ["pw-confirm", "Confirm new password", confirm, setConfirm, "new-password"],
-        ] as const
-      ).map(([id, label, value, set, ac]) => (
-        <div key={id} className="space-y-1.5">
-          <label htmlFor={id} className="text-sm font-medium">
-            {label}
-          </label>
-          <Input
-            id={id}
-            type="password"
-            autoComplete={ac}
-            value={value}
-            onChange={(e) => set(e.target.value)}
-          />
-        </div>
-      ))}
-      {error && (
-        <p role="alert" className="text-sm text-danger">
-          {error}
-        </p>
-      )}
-      <Button type="submit">Update password</Button>
-    </form>
   );
 }
 
@@ -552,6 +502,11 @@ function SubscriptionSection() {
       toast.error(err);
       return;
     }
+    if (isDemo) {
+      actions.syncWorkspace({ plan, seats, renewsAt });
+      toast.success("Demo plan updated", { description: "Nothing was charged." });
+      return;
+    }
     const res = await fetch("/api/billing/update", {
       method: "POST",
       credentials: "include",
@@ -665,7 +620,6 @@ function BackupsSection() {
   const { workspace } = useAppState();
   const allowed = planAllows(workspace.plan, "backups");
   const fileRef = useRef<HTMLInputElement>(null);
-  const [resetOpen, setResetOpen] = useState(false);
 
   const exportBackup = () => {
     const blob = new Blob([JSON.stringify(getState(), null, 2)], { type: "application/json" });
@@ -718,19 +672,6 @@ function BackupsSection() {
           />
         </div>
       )}
-      <div className="mt-6 border-t pt-5">
-        <Button variant="ghost" className="text-danger" onClick={() => setResetOpen(true)}>
-          Reset demo data
-        </Button>
-      </div>
-      <ConfirmDialog
-        open={resetOpen}
-        onOpenChange={setResetOpen}
-        title="Reset demo data?"
-        description="All projects, tasks and users will be replaced with the original sample data."
-        confirmLabel="Reset"
-        onConfirm={() => actions.resetDemo()}
-      />
     </Card>
   );
 }

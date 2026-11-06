@@ -12,3 +12,9 @@ services:
       PORT: "3000"
       PROXY_NEXT: "1"
       NEXT_ORIGIN: http://127.0.0.1:3001
+  demo:
+    build:
+      context: .
+      dockerfile: demo/Dockerfile
+    ports:
+      - "5000:5000"

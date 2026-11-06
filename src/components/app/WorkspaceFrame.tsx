@@ -6,8 +6,9 @@ import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app/AppShell";
 import { accountQuery, clearNextPath, subscribeStep } from "@/lib/account";
+import { isDemo } from "@/lib/demo-mode";
 import { homePathFor } from "@/lib/permissions";
-import { actions, hydrateStore } from "@/lib/store";
+import { actions, hydrateStore, useStoreHydrated } from "@/lib/store";
 import { useGoogleSignIn } from "@/hooks/use-google-sign-in";
 
 export function WorkspaceFrame({
@@ -19,13 +20,19 @@ export function WorkspaceFrame({
 }) {
   const router = useRouter();
   const { signIn, busy } = useGoogleSignIn();
-  const query = useQuery({ ...accountQuery, retry: false });
+  const hydrated = useStoreHydrated();
+  const query = useQuery({ ...accountQuery, enabled: !isDemo, retry: false });
+
+  useEffect(() => {
+    if (isDemo) void hydrateStore("admin");
+  }, []);
 
   useEffect(() => {
     clearNextPath();
   }, []);
 
   useEffect(() => {
+    if (isDemo) return;
     if (query.isError) {
       router.replace("/");
       return;
@@ -44,6 +51,23 @@ export function WorkspaceFrame({
   }, [adminOnly, query.data, query.isError, router]);
 
   const account = query.data;
+  if (isDemo) {
+    if (!hydrated) {
+      return (
+        <div className="flex h-dvh items-center justify-center bg-background">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+    return (
+      <AppShell role="admin">
+        <p className="mx-4 mt-4 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground md:mx-8">
+          Sample workspace. Changes stay in this browser. Nothing is emailed, saved to a database, or charged.
+        </p>
+        {children}
+      </AppShell>
+    );
+  }
   if (query.isLoading || !account || subscribeStep(account) !== "app") {
     return (
       <div className="flex h-dvh items-center justify-center bg-background">

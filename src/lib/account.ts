@@ -1,5 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
-import type { PlanId } from "./subscription";
+import { isDemo } from "./demo-mode";
+import { getState, actions } from "./store";
+import { defaultRenewal, type PlanId } from "./subscription";
 
 export interface Account {
   userId: string;
@@ -9,6 +11,7 @@ export interface Account {
   role: "admin" | "member";
   adminName: string | null;
   driveConnected: boolean;
+  workspaces: { id: string; name: string; role: "admin" | "member" }[];
   workspace: {
     id: string;
     name: string;
@@ -40,7 +43,32 @@ export function takeNextPath(): string {
 }
 export const clearNextPath = () => sessionStorage.removeItem(NEXT_KEY);
 
+export function demoAccount(): Account {
+  const state = getState();
+  const me = state.users.find((user) => user.id === state.currentUserId) ?? state.users[0];
+  const renewsAt = state.workspace.renewsAt ?? defaultRenewal();
+  return {
+    userId: me?.id ?? "u-admin",
+    name: me?.name ?? "Lilly McCarthy",
+    email: me?.email ?? "lilly@example.com",
+    avatarUrl: me?.avatar ?? null,
+    role: "admin",
+    adminName: me?.name ?? "Lilly McCarthy",
+    driveConnected: true,
+    workspaces: [{ id: "demo", name: state.workspace.name || "Todobee Workspace", role: "admin" }],
+    workspace: {
+      id: "demo",
+      name: state.workspace.name || "Todobee Workspace",
+      plan: state.workspace.plan,
+      seats: state.workspace.seats,
+      subscribedAt: renewsAt,
+      renewsAt,
+    },
+  };
+}
+
 async function fetchAccount(): Promise<Account> {
+  if (isDemo) return demoAccount();
   const res = await fetch("/api/me", { credentials: "include" });
   if (res.status === 401) throw new Error("You're signed out.");
   if (!res.ok) throw new Error("Your account isn't set up yet.");
@@ -55,6 +83,11 @@ export const accountQuery = queryOptions({
 
 /** Sends the admin to Stripe Checkout for a yearly per-seat plan. */
 export async function startCheckout(plan: PlanId, seats: number) {
+  if (isDemo) {
+    actions.syncWorkspace({ plan, seats, renewsAt: defaultRenewal() });
+    window.location.assign("/dashboard");
+    return;
+  }
   const res = await fetch("/api/billing/checkout", {
     method: "POST",
     credentials: "include",

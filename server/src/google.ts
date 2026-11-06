@@ -4,14 +4,14 @@ import { pb, type PbUser } from "./pb.js";
 
 const tokens = new Map<string, { access: string; exp: number }>();
 
-export function googleRedirectUri() {
-  return `${env.appUrl()}/api/auth/google/callback`;
+export function googleRedirectUri(origin = env.appUrl()) {
+  return `${origin.replace(/\/+$/, "")}/api/auth/google/callback`;
 }
 
-export function googleAuthUrl(state: string) {
+export function googleAuthUrl(state: string, origin = env.appUrl()) {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", env.googleClientId());
-  url.searchParams.set("redirect_uri", googleRedirectUri());
+  url.searchParams.set("redirect_uri", googleRedirectUri(origin));
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", GOOGLE_SCOPES.join(" "));
   url.searchParams.set("access_type", "offline");
@@ -21,12 +21,12 @@ export function googleAuthUrl(state: string) {
   return url.toString();
 }
 
-export async function exchangeCode(code: string) {
+export async function exchangeCode(code: string, origin = env.appUrl()) {
   const body = new URLSearchParams({
     code,
     client_id: env.googleClientId(),
     client_secret: env.googleClientSecret(),
-    redirect_uri: googleRedirectUri(),
+    redirect_uri: googleRedirectUri(origin),
     grant_type: "authorization_code",
   });
   const res = await fetch("https://oauth2.googleapis.com/token", {

@@ -77,18 +77,35 @@ export function present(state: AppState, viewer: Viewer, billing: Billing): AppS
       },
     ];
   }
+  return forViewer(
+    {
+      ...state,
+      currentUserId: viewer.id,
+      users,
+      invites: state.invites ?? [],
+      workspace: {
+        ...state.workspace,
+        name: billing.name || state.workspace.name,
+        plan: billing.plan,
+        seats: billing.seats,
+        renewsAt: billing.renewsAt || state.workspace.renewsAt,
+      },
+    },
+    viewer,
+  );
+}
+
+/** Members only receive the projects they belong to. */
+export function forViewer(state: AppState, viewer: Viewer): AppState {
+  if (viewer.role === "admin") return state;
+  const projects = state.projects.filter((project) => project.memberIds.includes(viewer.id));
+  const ids = new Set(projects.map((project) => project.id));
   return {
     ...state,
-    currentUserId: viewer.id,
-    users,
-    invites: state.invites ?? [],
-    workspace: {
-      ...state.workspace,
-      name: billing.name || state.workspace.name,
-      plan: billing.plan,
-      seats: billing.seats,
-      renewsAt: billing.renewsAt || state.workspace.renewsAt,
-    },
+    invites: [],
+    projects,
+    sections: state.sections.filter((section) => ids.has(section.projectId)),
+    tasks: state.tasks.filter((task) => ids.has(task.projectId)),
   };
 }
 
@@ -221,6 +238,17 @@ export function mergeState(stored: AppState, incoming: AppState, viewer: Viewer,
 export function seatProblem(state: AppState, seats: number, plan: PlanId) {
   const pending = (state.invites ?? []).filter((invite: Invite) => new Date(invite.expiresAt) > new Date());
   return seatChangeError(seats, state.users.length + pending.length, plan);
+}
+
+export function canReadFile(state: AppState, viewer: Viewer, fileId: string) {
+  for (const task of state.tasks ?? []) {
+    const hit = (task.files ?? []).some((file) => file.driveUrl?.match(/\/api\/files\/([^/?#]+)/)?.[1] === fileId);
+    if (!hit) continue;
+    if (viewer.role === "admin") return true;
+    const project = state.projects.find((item) => item.id === task.projectId);
+    if (project?.memberIds.includes(viewer.id)) return true;
+  }
+  return false;
 }
 
 export function fileIds(state: AppState) {

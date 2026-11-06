@@ -147,10 +147,7 @@ export function UsersPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      actions.resendInvite(i.id);
-                      toast.success(`Invite resent to ${i.email}`);
-                    }}
+                    onClick={() => actions.resendInvite(i.id)}
                   >
                     Resend
                   </Button>
