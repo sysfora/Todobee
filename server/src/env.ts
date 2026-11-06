@@ -44,6 +44,20 @@ export const env = {
   },
   stripeKey: () => process.env.STRIPE_SECRET_KEY || "",
   stripeWebhookSecret: () => process.env.STRIPE_WEBHOOK_SECRET || "",
+  smtpHost: () => process.env.SMTP_HOST || "",
+  smtpPort: () => {
+    const parsed = Number(process.env.SMTP_PORT || 587);
+    return Number.isFinite(parsed) ? parsed : 587;
+  },
+  smtpSecure: () => {
+    const flag = (process.env.SMTP_SECURE || "").toLowerCase();
+    if (flag === "true" || flag === "1") return true;
+    if (flag === "false" || flag === "0") return false;
+    return Number(process.env.SMTP_PORT || 587) === 465;
+  },
+  smtpUser: () => process.env.SMTP_USER || "",
+  smtpPassword: () => process.env.SMTP_PASSWORD || "",
+  smtpFrom: () => process.env.SMTP_FROM || "",
 };
 
 export const GOOGLE_SCOPES = [

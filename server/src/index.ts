@@ -19,7 +19,8 @@ import { downloadFile, ensureFolder, uploadFile } from "./drive.js";
 import { startDriveSync, stopDriveSync, syncPendingWorkspaces } from "./drive-sync.js";
 import { applyStripeSubscription, createCheckout, getStripe, updateSubscription } from "./billing.js";
 import { claimIdentity, fileIds, initialWorkspaceState, mergeState, present, seatProblem, type Viewer } from "./state.js";
-import type { AppState } from "./demo/types.js";
+import { sendInviteEmail } from "./mail.js";
+import type { AppState, Invite } from "./demo/types.js";
 import type { PlanId } from "./demo/subscription.js";
 import { clampSeats, MIN_SEATS } from "./demo/subscription.js";
 
@@ -314,6 +315,10 @@ app.put("/api/workspace", async (c) => {
     driveSynced: false,
     pendingDriveDeletes,
   });
+  await emailNewInvites(stored.invites ?? [], merged.invites ?? [], {
+    workspaceName: merged.workspace.name,
+    inviterName: viewer.name,
+  });
   const syncedFiles: Record<string, string> = {};
   for (const task of merged.tasks ?? []) {
     for (const file of task.files ?? []) {
@@ -322,6 +327,24 @@ app.put("/api/workspace", async (c) => {
   }
   return c.json({ ok: true, pendingSync: true, syncedFiles });
 });
+
+async function emailNewInvites(
+  previous: Invite[],
+  next: Invite[],
+  meta: { workspaceName: string; inviterName: string },
+) {
+  const prior = new Map(previous.map((invite) => [invite.id, invite.expiresAt]));
+  const pending = next.filter((invite) => prior.get(invite.id) !== invite.expiresAt);
+  await Promise.all(
+    pending.map(async (invite) => {
+      try {
+        await sendInviteEmail({ invite, ...meta });
+      } catch (error) {
+        console.error(`Invite email to ${invite.email} failed`, error);
+      }
+    }),
+  );
+}
 
 function stripFiles(state: AppState, stored?: AppState): AppState {
   const existingDriveUrls = new Map<string, string>();
