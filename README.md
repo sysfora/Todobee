@@ -127,10 +127,6 @@ Set `APP_URL` to the public `https` origin. PocketBase is not started by this co
 | `.env.example` | Every variable, with the permissions and events to configure |
 
 <p align="center">
-  <img src="./public/brand/logo.png" width="280" alt="Todobee" />
-</p>
-
-<p align="center">
   Copyright © 2026 Sysfora Technologies Private Limited<br />
   Licensed under the <a href="./LICENSE">GNU Affero General Public License v3.0</a>.
 </p>
