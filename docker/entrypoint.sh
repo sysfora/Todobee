@@ -36,13 +36,18 @@ if [ "$ready" -ne 1 ]; then
 fi
 
 DEMO_PORT="${DEMO_PORT:-5000}"
-DEMO_SERVER=$(find /app/demo -name server.js -type f | head -n 1)
-if [ -z "$DEMO_SERVER" ]; then
-  echo "Demo server.js was not found" >&2
+if [ ! -f /app/demo/start-path ]; then
+  echo "Demo start-path was not found" >&2
   exit 1
 fi
-DEMO_DIR=$(dirname "$DEMO_SERVER")
+DEMO_REL=$(cat /app/demo/start-path)
+DEMO_DIR=/app/demo/$(dirname "$DEMO_REL")
+if [ ! -f "$DEMO_DIR/server.js" ]; then
+  echo "Demo server.js was not found at $DEMO_DIR/server.js" >&2
+  exit 1
+fi
 cd "$DEMO_DIR"
+echo "Starting demo from $DEMO_DIR"
 PORT="$DEMO_PORT" HOSTNAME=0.0.0.0 node server.js &
 DEMO_PID=$!
 

@@ -24,11 +24,13 @@ COPY demo ./demo
 ENV NEXT_PUBLIC_DEMO=1
 WORKDIR /app/demo
 RUN node /app/node_modules/next/dist/bin/next build \
-  && SERVER=$(find .next/standalone -name server.js -type f | head -n 1) \
+  && SERVER=$(find .next/standalone \( -path '*/node_modules/*' -o -path '*/.next/*' \) -prune -o -name server.js -type f -print | head -n 1) \
+  && test -n "$SERVER" \
   && DIR=$(dirname "$SERVER") \
   && mkdir -p "$DIR/.next" \
   && cp -a .next/static "$DIR/.next/static" \
-  && cp -a /app/public "$DIR/public"
+  && cp -a /app/public "$DIR/public" \
+  && printf '%s\n' "${SERVER#.next/standalone/}" > .next/standalone/start-path
 
 FROM node:22-bookworm-slim
 RUN apt-get update \
