@@ -115,8 +115,8 @@ Set `APP_URL` to the public `https` origin. PocketBase is not started by this co
 | `public/brand/` | Bee, wordmark, and board image |
 | `.env.example` | Every variable, with the permissions and events to configure |
 
+##
 <p align="center">
-  
   Copyright © 2026 Sysfora Technologies Private Limited<br />
   Licensed under the <a href="./LICENSE">GNU Affero General Public License v3.0</a>.
 </p>
