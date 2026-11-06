@@ -131,6 +131,6 @@ Set `APP_URL` to the public `https` origin. PocketBase is not started by this co
 </p>
 
 <p align="center">
-  Copyright © 2026 Sysfora<br />
+  Copyright © 2026 Sysfora Technologies Private Limited<br />
   Licensed under the <a href="./LICENSE">GNU Affero General Public License v3.0</a>.
 </p>
