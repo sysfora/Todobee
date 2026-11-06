@@ -2,7 +2,7 @@
 import { Link, useNavigate } from "@/lib/nav";
 import { useParams, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { ChevronDown, CircleCheck, Filter, Plus, Rows3, Star } from "lucide-react";
+import { ChevronDown, CircleCheck, Columns3, Filter, List, Plus, Rows3, Star } from "lucide-react";
 import { actions, useAppState } from "@/lib/store";
 import {
   emptyFilter,
@@ -27,6 +27,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AvatarStack, ColorDot } from "@/components/app/primitives";
 import { Board, GroupedBoard } from "@/components/app/Board";
+import { TaskList } from "@/components/app/TaskList";
 import { FiltersPanel } from "@/components/app/FiltersPanel";
 import { TaskDialog } from "@/components/app/TaskDialog";
 import { MemberPicker } from "@/components/app/MemberPicker";
@@ -50,6 +51,7 @@ export function ProjectBoard() {
   const [showCompleted, setShowCompleted] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
   const [groupBy, setGroupBy] = useState<GroupBy>("sections");
+  const [view, setView] = useState<"board" | "list">("board");
 
   const sections = useMemo(
     () => state.sections.filter((s) => s.projectId === projectId).sort((a, b) => a.order - b.order),
@@ -71,6 +73,30 @@ export function ProjectBoard() {
     visibleTasks.forEach((t) => map.set(t.sectionId, [...(map.get(t.sectionId) ?? []), t]));
     return map;
   }, [visibleTasks]);
+
+  const listGroups = useMemo(() => {
+    if (groupBy === "sections")
+      return sections.map((s) => ({
+        id: s.id,
+        name: s.name,
+        tasks: tasksBySection.get(s.id) ?? [],
+      }));
+    return groupTasks(visibleTasks, groupBy, {
+      users: state.users.filter((u) => project?.memberIds.includes(u.id)),
+      labels: state.labels,
+      today: todayISO(),
+      meId: state.currentUserId,
+    });
+  }, [
+    groupBy,
+    sections,
+    tasksBySection,
+    visibleTasks,
+    state.users,
+    state.labels,
+    state.currentUserId,
+    project?.memberIds,
+  ]);
 
   const setOpenTask = (id: string | null) =>
     navigate({ search: id ? { task: id } : {}, replace: true });
@@ -125,6 +151,34 @@ export function ProjectBoard() {
               <Plus className="h-3.5 w-3.5" strokeWidth={2} />
             </span>
           </button>
+          <span aria-hidden className="mx-1 h-6 w-px bg-border" />
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="View"
+              className={cn(
+                "flex h-8 items-center gap-1.5 rounded-full px-2.5 text-sm font-medium hover:bg-foreground/8",
+                view === "list" && "bg-primary-container text-on-primary-container",
+              )}
+            >
+              {view === "board" ? (
+                <Columns3 className="h-4 w-4" strokeWidth={1.6} />
+              ) : (
+                <List className="h-4 w-4" strokeWidth={1.6} />
+              )}
+              <span className="hidden sm:inline">View</span>
+              <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.8} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuRadioGroup value={view} onValueChange={(v) => setView(v as "board" | "list")}>
+                <DropdownMenuRadioItem value="board" className="gap-2">
+                  <Columns3 className="h-4 w-4" strokeWidth={1.6} /> Board
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="list" className="gap-2">
+                  <List className="h-4 w-4" strokeWidth={1.6} /> List
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <span aria-hidden className="mx-1 h-6 w-px bg-border" />
           <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
             <PopoverTrigger
@@ -198,7 +252,9 @@ export function ProjectBoard() {
       </div>
 
       <div className="min-h-0 flex-1">
-        {groupBy === "sections" ? (
+        {view === "list" ? (
+          <TaskList groups={listGroups} onOpenTask={setOpenTask} />
+        ) : groupBy === "sections" ? (
           <Board
             projectId={project.id}
             sections={sections}

@@ -18,6 +18,7 @@ import { BeeLogo, HELP_EMAIL, LandingFooter, LandingNav } from "@/components/lan
 import { DEMO_ORIGIN } from "@/lib/demo-mode";
 import boardShot from "@/assets/todobee-marketing-board.webp.asset.json";
 import { PricingSection } from "@/components/landing/PricingSection";
+import { CookieConsent } from "@/components/landing/CookieConsent";
 import { OpenSourceSection } from "@/components/landing/OpenSourceSection";
 import { AccessVisual, BoardVisual, DriveVisual, TaskVisual } from "@/components/landing/visuals";
 
@@ -249,6 +250,7 @@ export function LandingPage() {
         </section>
       </main>
       <LandingFooter />
+      <CookieConsent />
     </div>
   );
 }
