@@ -6,7 +6,6 @@
 
 <p align="center">
   The open-source project management app for teams on Google Workspace.<br />
-  Boards, tasks, and files stay in the admin’s own Google Drive.
 </p>
 
 <p align="center">
