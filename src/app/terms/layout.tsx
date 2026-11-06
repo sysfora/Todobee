@@ -1,0 +1,14 @@
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: "Terms",
+  description: "Terms that govern use of the Todobee site and services.",
+};
+
+export default function TermsLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return children
+}

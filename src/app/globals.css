@@ -320,6 +320,9 @@
 }
 
 /* Legal pages: flat type, tables, and placeholder marks. */
+.legal-doc section > * + * {
+  margin-top: 1rem;
+}
 .legal-doc h2 {
   margin-top: 2.5rem;
   font-size: 1.35rem;
