@@ -40,7 +40,7 @@ Todobee is a board for the work a team actually does: projects, sections, tasks,
       Drag tasks between sections. Group a board by person, label, priority, or due date, and filter down to the work that matters right now.
     </td>
     <td width="50%" valign="top">
-      <h3>A full task in one place</h3>
+      <h3>All tasks in one place</h3>
       Checklists, notes, files, priorities, due dates, assignees, and colored labels sit on the card. The conversation stays next to the work.
     </td>
   </tr>
