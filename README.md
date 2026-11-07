@@ -186,9 +186,6 @@ We offer options to support the ongoing open-source development of Todobee:
 
 Contact us at [contact@sysfora.com](mailto:contact@sysfora.com) for sponsorship inquiries.
 
-<br />
-<br />
-
 ## Todobee Cloud vs. Open-source
 
 Choose [Todobee Cloud](https://todobee.com/) for a fully managed experience, or deploy Todobee Open-source on your own infrastructure. Both provide the exact same core product and features.
@@ -213,9 +210,6 @@ We do not gate essential features or artificially restrict the open-source licen
 | **Backups & Security** | Managed infrastructure | Your responsibility |
 | **Support** | Priority support via email | Community support on GitHub Issues and Discussions |
 | **Source access & customization** | SaaS platform | Full source code, fork and modify freely under AGPL-3.0 |
-
-<br />
-<br />
 
 ## Todobee Compliance
 
