@@ -44,7 +44,7 @@
 
 <br />
 
-<p align="center"><strong>Built for Google Workspace & Modern Cloud Workflows:</strong></p>
+<p align="center"><strong>Built for Google Workspace</strong></p>
 <div class="flex" align="center">
   <img alt="Google Drive" src="https://img.shields.io/badge/Google%20Drive-4285F4?style=for-the-badge&logo=googledrive&logoColor=white" height="28">
   <img alt="Google Workspace" src="https://img.shields.io/badge/Google%20Workspace-EA4335?style=for-the-badge&logo=google&logoColor=white" height="28">
