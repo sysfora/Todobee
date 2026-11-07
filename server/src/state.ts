@@ -53,14 +53,29 @@ export function initialWorkspaceState(user: { id: string; name: string; email: s
   };
 }
 
+/** A saved picture wins. An empty string means the person removed it, so Google's photo stays off. */
+export function profileAvatar(saved: string | undefined, fallback?: string | null) {
+  if (saved === "") return undefined;
+  return saved || fallback || undefined;
+}
+
+/** Point the signed-in person at one people-list record, even if an invite used another id. */
+export function bindViewer(state: AppState, viewer: Viewer): AppState {
+  const email = viewer.email.toLowerCase();
+  const match = state.users.find((person) => person.email.toLowerCase() === email);
+  if (!match || match.id === viewer.id) return state;
+  return swapId(state, match.id, viewer.id);
+}
+
 export function present(state: AppState, viewer: Viewer, billing: Billing): AppState {
-  let users = state.users.map((person) =>
+  const bound = bindViewer(state, viewer);
+  let users = bound.users.map((person) =>
     person.id === viewer.id
       ? {
           ...person,
           name: person.name || viewer.name,
           email: viewer.email,
-          avatar: person.avatar || viewer.avatar || undefined,
+          avatar: profileAvatar(person.avatar, viewer.avatar),
           role: viewer.role === "admin" ? ("Admin" as const) : ("Member" as const),
         }
       : person,
@@ -73,13 +88,13 @@ export function present(state: AppState, viewer: Viewer, billing: Billing): AppS
         name: viewer.name,
         email: viewer.email,
         role: viewer.role === "admin" ? "Admin" : "Member",
-        avatar: viewer.avatar || undefined,
+        avatar: profileAvatar(undefined, viewer.avatar),
       },
     ];
   }
   return forViewer(
     {
-      ...state,
+      ...bound,
       currentUserId: viewer.id,
       users,
       invites: state.invites ?? [],
@@ -149,7 +164,12 @@ export function claimIdentity(
       ...next,
       users: next.users.map((person) =>
         person.id === user.id
-          ? { ...person, name: user.name || person.name, email: user.email, avatar: user.avatar || person.avatar }
+          ? {
+              ...person,
+              name: person.name || user.name,
+              email: user.email,
+              avatar: person.avatar ?? user.avatar,
+            }
           : person,
       ),
     };

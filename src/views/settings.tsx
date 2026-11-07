@@ -201,6 +201,9 @@ function ProfileSection() {
   const me = state.users.find((u) => u.id === state.currentUserId);
   const [name, setName] = useState(me?.name ?? "");
   const photoRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (me?.name) setName(me.name);
+  }, [me?.name]);
   if (!me) return null;
   return (
     <Card title="Profile" description="Your name is shown to everyone on your projects.">
@@ -241,7 +244,7 @@ function ProfileSection() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => actions.updateUser(me.id, { avatar: undefined })}
+            onClick={() => actions.updateUser(me.id, { avatar: "" })}
           >
             Remove
           </Button>
@@ -267,7 +270,6 @@ function ProfileSection() {
         />
         <Button type="submit">Save</Button>
       </form>
-      <p className="mt-6 text-sm text-muted-foreground">You sign in with Google, so there is no separate password.</p>
     </Card>
   );
 }

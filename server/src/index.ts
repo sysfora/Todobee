@@ -19,7 +19,7 @@ import { accessTokenFor, driveScopeGranted, exchangeCode, googleAuthUrl, googleP
 import { downloadFile, ensureFolder, uploadFile } from "./drive.js";
 import { startDriveSync, stopDriveSync, syncPendingWorkspaces } from "./drive-sync.js";
 import { applyStripeSubscription, createCheckout, getStripe, updateSubscription } from "./billing.js";
-import { claimIdentity, canReadFile, fileIds, initialWorkspaceState, mergeState, present, seatProblem, type Viewer } from "./state.js";
+import { bindViewer, claimIdentity, canReadFile, fileIds, initialWorkspaceState, mergeState, present, seatProblem, type Viewer } from "./state.js";
 import { sendAssignmentEmail, sendInviteEmail, sendSupportEmail, type MailResult } from "./mail.js";
 import { withWorkspaceLock } from "./lock.js";
 import type { AppState, Invite } from "./demo/types.js";
@@ -83,6 +83,46 @@ async function activeSession(c: {
     ),
   );
   return { user: loaded.user, member, workspace };
+}
+
+async function publishProfile(
+  userId: string,
+  email: string,
+  name: string,
+  avatar: string | undefined,
+  skipWorkspaceId: string,
+) {
+  try {
+    await pb().collection("users").update(userId, { name, avatar: avatar ?? "" });
+  } catch (error) {
+    console.error("Couldn't store the profile on the account", error);
+  }
+  const memberships = await membershipsFor(userId);
+  for (const membership of memberships) {
+    if (membership.workspace === skipWorkspaceId) continue;
+    const row = await pb().collection("workspaces").getOne<PbWorkspace>(membership.workspace);
+    if (!row.cache) continue;
+    let cache = bindViewer(row.cache, {
+      id: userId,
+      name,
+      email,
+      avatar,
+      role: membership.role,
+    });
+    let changed = cache !== row.cache;
+    const users = cache.users.map((person) => {
+      if (person.id !== userId && person.email.toLowerCase() !== email.toLowerCase()) return person;
+      if (person.name === name && person.avatar === avatar && person.id === userId) return person;
+      changed = true;
+      return { ...person, id: userId, name, email, avatar };
+    });
+    if (!changed) continue;
+    await pb().collection("workspaces").update(row.id, {
+      cache: { ...cache, users },
+      cacheRevision: (row.cacheRevision ?? 0) + 1,
+      driveSynced: false,
+    });
+  }
 }
 
 async function dropRemovedMembers(workspaceId: string, before: AppState, after: AppState) {
@@ -263,8 +303,8 @@ app.get("/api/auth/google/callback", async (c) => {
       });
     } else {
       user = await pb().collection("users").update<PbUser>(user.id, {
-        name: profile.name,
-        avatar: profile.picture,
+        name: user.name || profile.name,
+        avatar: user.avatar ?? profile.picture,
         googleSub: profile.sub,
         emailVisibility: true,
         verified: true,
@@ -428,7 +468,7 @@ app.put("/api/workspace", async (c) => {
       let workspace = await pb().collection("workspaces").getOne<PbWorkspace>(session.workspace!.id);
       const viewer = viewerOf(session.user, session.member!);
       let billing = billingOf(workspace);
-      const stored = workspace.cache || incoming;
+      const stored = bindViewer(workspace.cache || incoming, viewer);
       const currentRevision = workspace.cacheRevision ?? 0;
       if (!Number.isFinite(revision) || revision !== currentRevision) {
         return c.json(
@@ -484,6 +524,11 @@ app.put("/api/workspace", async (c) => {
         pendingDriveDeletes,
       });
       await dropRemovedMembers(workspace.id, stored, merged);
+      const profile = merged.users.find((person) => person.id === viewer.id);
+      const previous = stored.users.find((person) => person.id === viewer.id);
+      if (profile && (profile.name !== previous?.name || profile.avatar !== previous?.avatar)) {
+        await publishProfile(viewer.id, viewer.email, profile.name, profile.avatar, workspace.id);
+      }
       const emails = [
         ...(await emailNewInvites(stored.invites ?? [], merged.invites ?? [], {
           workspaceName: merged.workspace.name,
