@@ -54,6 +54,7 @@ async function findFile(token: string, query: string) {
   url.searchParams.set("q", query);
   url.searchParams.set("fields", "files(id)");
   url.searchParams.set("pageSize", "1");
+  url.searchParams.set("orderBy", "createdTime");
   url.searchParams.set("spaces", "drive");
   const res = await drive(token, url.toString());
   const json = (await res.json()) as { files?: { id: string }[] };
@@ -72,6 +73,20 @@ async function folderAlive(token: string, id: string) {
   const text = await res.text();
   checkQuotaFailure(res.status, text);
   throw new Error(`Google Drive ${res.status}: ${text.slice(0, 280)}`);
+}
+
+async function fileInFolder(token: string, fileId: string, folderId: string) {
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,trashed,parents`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  if (res.status === 404) return false;
+  if (!res.ok) {
+    const text = await res.text();
+    checkQuotaFailure(res.status, text);
+    throw new Error(`Google Drive ${res.status}: ${text.slice(0, 280)}`);
+  }
+  const data = (await res.json()) as { trashed?: boolean; parents?: string[] };
+  return !data.trashed && (data.parents ?? []).includes(folderId);
 }
 
 /** Reuse the Todobee folder at the Drive root. Create it only when that folder is not there. */
@@ -187,8 +202,9 @@ export async function syncDrive(workspace: PbWorkspace, state: AppState, tokenOv
     return { ok: false as const, driveFolderId: workspace.driveFolderId, driveFileId: workspace.driveFileId };
   }
   let driveFolderId = await ensureFolder(token, workspace.driveFolderId || undefined);
-  let driveFileId = workspace.driveFolderId === driveFolderId ? workspace.driveFileId : undefined;
-  if (!driveFileId) {
+  let driveFileId = workspace.driveFileId;
+  const inFolder = driveFileId ? await fileInFolder(token, driveFileId, driveFolderId) : false;
+  if (!inFolder) {
     driveFileId = await findFile(
       token,
       `name=${driveQuery(workspaceFileName(state.workspace?.name))} and '${driveFolderId}' in parents and trashed=false`,

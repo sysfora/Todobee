@@ -661,7 +661,7 @@ function BackupsSection() {
         setConflicts(names);
         return;
       }
-      applyBackup(data, false);
+      applyBackup(data, "skip");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "That file isn't a Todobee backup");
     }
