@@ -29,11 +29,6 @@
   <a href="https://demo.todobee.com" rel="dofollow"><strong>Try the Live Demo »</strong></a>
   <br />
 
-  <br />
-  <a href="https://github.com/Sysfora/todobee" rel="dofollow"><strong>Explore GitHub Repository »</strong></a>
-  <br />
-</p>
-
 <p align="center">
   <a href="https://demo.todobee.com">Try Demo</a>
   ·
