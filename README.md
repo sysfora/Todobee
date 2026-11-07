@@ -19,9 +19,7 @@
 <div align="center">
   <strong>
     <a href="https://todobee.com">Todobee</a> is an open-source project management platform built for teams on Google Workspace.
-    
-  Use Todobee Cloud for a fully managed experience, or deploy the open-source edition on your own infrastructure.
-  </strong>
+      </strong>
 </div>
 
 <p align="center">
