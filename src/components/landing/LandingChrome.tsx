@@ -1,4 +1,7 @@
-import { Github } from "lucide-react";
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
+import { Github, Menu, X } from "lucide-react";
 import { SignInButton } from "./SignInButton";
 import { GITHUB_URL } from "./OpenSourceSection";
 import beeLight from "@/assets/todobee-bee-light.png.asset.json";
@@ -19,39 +22,94 @@ export function BeeLogo({ className }: { className?: string }) {
 }
 
 export function LandingNav({ dashboard = false }: { dashboard?: boolean }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const onDesktop = () => {
+      if (desktop.matches) setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    desktop.addEventListener("change", onDesktop);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      desktop.removeEventListener("change", onDesktop);
+    };
+  }, [open]);
+
   return (
     <header className="sticky top-0 z-30 border-b bg-surface/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
-        <a href="/#top" className="flex items-center gap-2" aria-label="Todobee home">
-          <BeeLogo className="h-8" />
-          <span className="text-xl font-semibold tracking-tight text-foreground">Todobee</span>
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6">
+        <a href="/#top" className="flex min-w-0 items-center gap-2" aria-label="Todobee home">
+          <BeeLogo className="h-8 shrink-0" />
+          <span className="truncate text-xl font-semibold tracking-tight text-foreground">Todobee</span>
         </a>
-        <nav aria-label="Page sections" className="hidden items-center gap-1 md:flex">
-          {NAV.map((n) => (
+        <nav aria-label="Page sections" className="hidden items-center gap-1 lg:flex">
+          {NAV.map((item) => (
             <a
-              key={n.href}
-              href={n.href}
+              key={item.href}
+              href={item.href}
               className="rounded-full px-3 py-2 text-[0.95rem] text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
             >
-              {n.label}
+              {item.label}
             </a>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <a
             href={GITHUB_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className={cn(buttonVariants({ variant: "outline" }), "hidden gap-2 sm:inline-flex")}
+            className={cn(buttonVariants({ variant: "outline" }), "hidden gap-2 shadow-none hover:shadow-none lg:inline-flex")}
           >
             <Github className="h-4 w-4" aria-hidden />
             Star on GitHub
           </a>
-          <SignInButton dashboard={dashboard} className={buttonVariants()}>
+          <SignInButton
+            dashboard={dashboard}
+            className={cn(buttonVariants(), "h-10 px-5 shadow-none hover:shadow-none")}
+          >
             Sign in
           </SignInButton>
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface text-foreground lg:hidden"
+            aria-expanded={open}
+            aria-controls="landing-menu"
+            aria-label={open ? "Close menu" : "Open menu"}
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? <X className="h-5 w-5" strokeWidth={1.8} /> : <Menu className="h-5 w-5" strokeWidth={1.8} />}
+          </button>
         </div>
       </div>
+      {open && (
+        <div id="landing-menu" className="border-t border-border lg:hidden">
+          <nav aria-label="Mobile" className="mx-auto flex max-w-7xl flex-col px-3 pt-2 pb-4 sm:px-5">
+            {NAV.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className="rounded-xl px-3 py-3 text-base font-medium text-foreground hover:bg-foreground/5"
+              >
+                {item.label}
+              </a>
+            ))}
+            <div className="mx-3 my-3 border-t border-border" />
+            <SignInButton
+              dashboard={dashboard}
+              className={cn(buttonVariants({ size: "lg" }), "w-full shadow-none hover:shadow-none")}
+            >
+              Sign in
+            </SignInButton>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }
@@ -102,7 +160,7 @@ export function LandingFooter() {
   );
 }
 
-function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
+function FooterColumn({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
       <p className="text-sm font-semibold text-foreground">{title}</p>
@@ -111,7 +169,7 @@ function FooterColumn({ title, children }: { title: string; children: React.Reac
   );
 }
 
-function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
+function FooterLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <li>
       <a
