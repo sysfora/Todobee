@@ -35,7 +35,7 @@
   <a href="https://github.com/Sysfora/todobee/issues">Report an Issue</a><br />
 </p>
 <p align="center">
-  <a href="#getting-started">Self-host Guide</a>
+  <a href="#quick-start">Self-host Guide</a>
   ·
   <a href="#tech-stack">Tech Stack</a>
   ·
@@ -91,7 +91,7 @@
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <strong>Google Drive/strong>
+      <strong>Google Drive</strong>
       <br><br>
       <strong>Your workspace data belongs to you.</strong>
       Projects, tasks, notes, and files sync directly to a dedicated
