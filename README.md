@@ -215,7 +215,6 @@ We do not gate essential features or artificially restrict the open-source licen
 | **Source access & customization** | SaaS platform | Full source code, fork and modify freely under AGPL-3.0 |
 
 <br />
-<br />
 
 ## Todobee Compliance
 
