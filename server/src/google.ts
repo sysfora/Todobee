@@ -2,7 +2,9 @@ import { env, GOOGLE_SCOPES } from "./env.js";
 import { decrypt } from "./session.js";
 import { pb, type PbUser } from "./pb.js";
 
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const tokens = new Map<string, { access: string; exp: number }>();
+const driveGrants = new Map<string, { ok: boolean; exp: number }>();
 
 export function googleRedirectUri(origin = env.appUrl()) {
   return `${origin.replace(/\/+$/, "")}/api/auth/google/callback`;
@@ -39,6 +41,7 @@ export async function exchangeCode(code: string, origin = env.appUrl()) {
     access_token?: string;
     refresh_token?: string;
     expires_in?: number;
+    scope?: string;
     error?: string;
     error_description?: string;
   };
@@ -89,8 +92,37 @@ export async function accessTokenFor(user: PbUser) {
   return json.access_token;
 }
 
-export function rememberAccess(userId: string, access: string, expiresIn = 3600) {
-  tokens.set(userId, { access, exp: Date.now() + expiresIn * 1000 });
+function scopeAllowsDrive(scope: string) {
+  return scope.split(/\s+/).includes(DRIVE_SCOPE);
+}
+
+export function rememberAccess(userId: string, access: string, expiresIn = 3600, scope?: string) {
+  const exp = Date.now() + expiresIn * 1000;
+  tokens.set(userId, { access, exp });
+  if (scope) driveGrants.set(userId, { ok: scopeAllowsDrive(scope), exp });
+}
+
+/** True only when this Google account granted Todobee access to Drive. */
+export async function driveScopeGranted(user: PbUser) {
+  const known = driveGrants.get(user.id);
+  if (known && known.exp > Date.now()) return known.ok;
+  const access = await accessTokenFor(user);
+  if (!access) return false;
+  try {
+    const res = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(access)}`,
+    );
+    if (!res.ok) return Boolean(user.refreshToken);
+    const json = (await res.json()) as { scope?: string; expires_in?: number };
+    const ok = scopeAllowsDrive(json.scope || "");
+    driveGrants.set(user.id, {
+      ok,
+      exp: Date.now() + Math.min((json.expires_in ?? 300) * 1000, 60_000),
+    });
+    return ok;
+  } catch {
+    return Boolean(user.refreshToken);
+  }
 }
 
 export async function ownerToken(ownerId: string) {

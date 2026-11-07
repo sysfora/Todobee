@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, CircleCheck, Inbox } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { CalendarDays, CircleCheck, Inbox, Loader2 } from "lucide-react";
 import { ink, tint } from "@/lib/colors";
 import {
   Area,
@@ -27,9 +28,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageTitle } from "@/components/app/primitives";
+import { buttonVariants } from "@/components/ui/button";
+import { useGoogleSignIn } from "@/hooks/use-google-sign-in";
+import { accountQuery } from "@/lib/account";
+import { isDemo } from "@/lib/demo-mode";
+import { cn } from "@/lib/utils";
 
+function DrivePermissionError() {
+  const { signIn, busy } = useGoogleSignIn({ consent: true });
+  return (
+    <div role="alert" className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-4 sm:px-5">
+      <p className="text-base font-medium text-foreground">Google permissions are not enabled</p>
+      <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+        You continued without allowing Google Drive. Sign in again and enable the requested
+        permissions so Todobee can save this workspace.
+      </p>
+      <button
+        type="button"
+        onClick={() => signIn()}
+        disabled={busy}
+        className={cn(buttonVariants(), "mt-4 w-full shadow-none hover:shadow-none sm:w-auto")}
+      >
+        {busy && <Loader2 className="animate-spin" aria-hidden />}
+        Sign in again
+      </button>
+    </div>
+  );
+}
 
 export function Dashboard() {
+  const account = useQuery({ ...accountQuery, enabled: !isDemo }).data;
   const full = useAppState();
   const [userId, setUserId] = useState("all");
   const state = useMemo(() => scopeToUser(full, userId), [full, userId]);
@@ -42,6 +70,7 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6 px-4 py-6 md:px-8">
+      {account && !account.driveConnected && <DrivePermissionError />}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PageTitle>Dashboard</PageTitle>
         <Select value={userId} onValueChange={setUserId}>

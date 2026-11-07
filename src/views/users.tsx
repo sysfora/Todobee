@@ -179,7 +179,7 @@ export function UsersPage() {
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(undefined)}
         title="Delete user?"
-        description={`${deleting?.name} will be removed from all projects and tasks.`}
+        description={`${deleting?.name} will lose access to this workspace. If it is their only workspace, their next visit starts as a new user.`}
         onConfirm={() => {
           if (deleting && !actions.deleteUser(deleting.id))
             toast.error("This user can't be deleted", {

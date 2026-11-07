@@ -2,14 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app/AppShell";
 import { accountQuery, clearNextPath, subscribeStep } from "@/lib/account";
 import { isDemo } from "@/lib/demo-mode";
 import { homePathFor } from "@/lib/permissions";
 import { actions, hydrateStore, useStoreHydrated } from "@/lib/store";
-import { useGoogleSignIn } from "@/hooks/use-google-sign-in";
 
 export function WorkspaceFrame({
   children,
@@ -19,8 +18,8 @@ export function WorkspaceFrame({
   adminOnly?: boolean;
 }) {
   const router = useRouter();
-  const { signIn, busy } = useGoogleSignIn({ consent: true });
   const hydrated = useStoreHydrated();
+  const openedWorkspace = useRef<string | undefined>(undefined);
   const query = useQuery({ ...accountQuery, enabled: !isDemo, retry: false });
 
   useEffect(() => {
@@ -39,6 +38,11 @@ export function WorkspaceFrame({
     }
     const account = query.data;
     if (!account) return;
+    if (openedWorkspace.current && openedWorkspace.current !== account.workspace.id) {
+      window.location.assign(subscribeStep(account) === "app" ? homePathFor(account.role) : "/subscribe");
+      return;
+    }
+    openedWorkspace.current = account.workspace.id;
     if (subscribeStep(account) !== "app") {
       router.replace("/subscribe");
       return;
@@ -81,21 +85,6 @@ export function WorkspaceFrame({
   }
 
   return (
-    <AppShell role={account.role}>
-      {account.role === "admin" && !account.driveConnected && (
-        <div className="mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-card px-4 py-3 text-sm shadow-card md:mx-8">
-          <p>Google Drive isn't connected, so this workspace is only cached in Todobee.</p>
-          <button
-            type="button"
-            onClick={() => signIn()}
-            disabled={busy}
-            className="font-medium text-link hover:underline"
-          >
-            Connect Google Drive
-          </button>
-        </div>
-      )}
-      {children}
-    </AppShell>
+    <AppShell role={account.role}>{children}</AppShell>
   );
 }

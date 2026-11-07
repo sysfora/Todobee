@@ -15,7 +15,7 @@ import {
   type PbUser,
   type PbWorkspace,
 } from "./pb.js";
-import { accessTokenFor, exchangeCode, googleAuthUrl, googleProfile, rememberAccess } from "./google.js";
+import { accessTokenFor, driveScopeGranted, exchangeCode, googleAuthUrl, googleProfile, rememberAccess } from "./google.js";
 import { downloadFile, ensureFolder, uploadFile } from "./drive.js";
 import { startDriveSync, stopDriveSync, syncPendingWorkspaces } from "./drive-sync.js";
 import { applyStripeSubscription, createCheckout, getStripe, updateSubscription } from "./billing.js";
@@ -48,6 +48,51 @@ async function loadSession(cookie: string | undefined) {
     return { user, member, workspace };
   } catch {
     return null;
+  }
+}
+
+const adopting = new Map<string, Promise<PbMember>>();
+
+/** A person with no memberships left is a new user: a fresh workspace, not a member of any old one. */
+async function ensureMembership(user: PbUser) {
+  const existing = adopting.get(user.id);
+  if (existing) return existing;
+  const pending = (async () => {
+    const rows = await membershipsFor(user.id);
+    return rows[0] ?? createWorkspace(user);
+  })().finally(() => adopting.delete(user.id));
+  adopting.set(user.id, pending);
+  return pending;
+}
+
+async function activeSession(c: {
+  req: { header: (name: string) => string | undefined; url: string };
+  header: (name: string, value: string) => void;
+}) {
+  const loaded = await loadSession(c.req.header("cookie"));
+  if (!loaded) return null;
+  if (loaded.member && loaded.workspace) return loaded;
+  const member = await ensureMembership(loaded.user);
+  const workspace = await pb().collection("workspaces").getOne<PbWorkspace>(member.workspace);
+  const origin = env.requestOrigin((name) => c.req.header(name), c.req.url);
+  c.header(
+    "set-cookie",
+    sessionCookie(
+      sealJson({ uid: loaded.user.id, wid: member.workspace }, 60 * 60 * 24 * 30),
+      origin.startsWith("https://"),
+    ),
+  );
+  return { user: loaded.user, member, workspace };
+}
+
+async function dropRemovedMembers(workspaceId: string, before: AppState, after: AppState) {
+  const kept = new Set((after.users ?? []).map((user) => user.id));
+  const removed = (before.users ?? []).map((user) => user.id).filter((id) => id && !kept.has(id));
+  for (const userId of removed) {
+    const rows = await membershipsFor(userId);
+    for (const row of rows) {
+      if (row.workspace === workspaceId) await pb().collection("members").delete(row.id);
+    }
   }
 }
 
@@ -106,7 +151,7 @@ async function adminNameFor(workspace: PbWorkspace, member: PbMember, user: PbUs
 
 async function driveReady(workspace: PbWorkspace) {
   const owner = await pb().collection("users").getOne<PbUser>(workspace.owner);
-  return Boolean(owner.refreshToken);
+  return driveScopeGranted(owner);
 }
 
 app.get("/api/health", async (c) => {
@@ -226,7 +271,7 @@ app.get("/api/auth/google/callback", async (c) => {
         ...(tokens.refresh_token ? { refreshToken: refresh } : {}),
       });
     }
-    rememberAccess(user.id, tokens.access_token!, tokens.expires_in);
+    rememberAccess(user.id, tokens.access_token!, tokens.expires_in, tokens.scope);
     const joined = await acceptInvites(user);
     let member = joined[0] || (await membershipFor(user.id));
     if (!member) member = await createWorkspace(user);
@@ -314,7 +359,7 @@ app.post("/api/auth/logout", (c) => {
 });
 
 app.get("/api/me", async (c) => {
-  const session = await loadSession(c.req.header("cookie"));
+  const session = await activeSession(c);
   if (!session?.member || !session.workspace) return c.json({ error: "You're signed out." }, 401);
   const adminName = await adminNameFor(session.workspace, session.member, session.user);
   const memberships = await membershipsFor(session.user.id);
@@ -337,7 +382,7 @@ app.get("/api/me", async (c) => {
 });
 
 app.post("/api/workspaces/current", async (c) => {
-  const session = await loadSession(c.req.header("cookie"));
+  const session = await activeSession(c);
   if (!session) return c.json({ error: "You're signed out." }, 401);
   const body = (await c.req.json().catch(() => null)) as { id?: string } | null;
   const memberships = await membershipsFor(session.user.id);
@@ -352,7 +397,7 @@ app.post("/api/workspaces/current", async (c) => {
 });
 
 app.get("/api/workspace", async (c) => {
-  const session = await loadSession(c.req.header("cookie"));
+  const session = await activeSession(c);
   if (!session?.member || !session.workspace) return c.json({ error: "You're signed out." }, 401);
   const workspace = session.workspace;
   const cache = workspace.cache || initialWorkspaceState({
@@ -425,6 +470,9 @@ app.put("/api/workspace", async (c) => {
       }
 
       const merged = stripFiles(mergeState(stored, incoming, viewer, billing), stored);
+      if (!(merged.users ?? []).some((user) => user.role === "Admin")) {
+        return c.json({ error: "The workspace needs at least one admin." }, 400);
+      }
       const removed = [...fileIds(stored)].filter((id) => !fileIds(merged).has(id));
       const pendingDriveDeletes = [...new Set([...(workspace.pendingDriveDeletes ?? []), ...removed])];
       const nextRevision = currentRevision + 1;
@@ -435,6 +483,7 @@ app.put("/api/workspace", async (c) => {
         driveSynced: false,
         pendingDriveDeletes,
       });
+      await dropRemovedMembers(workspace.id, stored, merged);
       const emails = [
         ...(await emailNewInvites(stored.invites ?? [], merged.invites ?? [], {
           workspaceName: merged.workspace.name,
