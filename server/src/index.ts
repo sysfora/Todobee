@@ -570,7 +570,7 @@ app.post("/api/billing/checkout", async (c) => {
   const body = (await c.req.json().catch(() => null)) as { plan?: PlanId; seats?: number } | null;
   const plan = body?.plan === "pro" || body?.plan === "enterprise" ? body.plan : "premium";
   if (plan === "enterprise") {
-    return c.json({ error: "Enterprise is set up with our team. Email help@todobee.com." }, 400);
+    return c.json({ error: "Enterprise is set up with our team. Email contact@sysfora.com." }, 400);
   }
   const seats = clampSeats(Number(body?.seats) || MIN_SEATS, plan);
   try {
@@ -589,7 +589,7 @@ app.post("/api/billing/update", async (c) => {
   const body = (await c.req.json().catch(() => null)) as { plan?: PlanId; seats?: number } | null;
   const plan = body?.plan === "pro" || body?.plan === "premium" ? body.plan : session.workspace.plan;
   if (body?.plan === "enterprise") {
-    return c.json({ error: "Enterprise is set up with our team. Email help@todobee.com." }, 400);
+    return c.json({ error: "Enterprise is set up with our team. Email contact@sysfora.com." }, 400);
   }
   const seats = clampSeats(Number(body?.seats) || session.workspace.seats, plan);
   const problem = seatProblem(

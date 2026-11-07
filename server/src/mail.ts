@@ -30,6 +30,7 @@ export async function sendSupportEmail(input: {
   subject: string;
   message: string;
 }): Promise<MailResult> {
+  // Private inbox. Public pages and docs use contact@sysfora.com only.
   const to = "sysforagroup@gmail.com";
   if (!smtpConfigured()) {
     return { kind: "support", to, ok: false, error: "SMTP is not configured on this server." };
@@ -86,7 +87,7 @@ export async function sendSupportEmail(input: {
     return { kind: "support", to, ok: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : "The mail server rejected the message.";
-    return { kind: "support", to, ok: false, error: message };
+    return { kind: "support", to, ok: false, error: message.split(to).join("support") };
   }
 }
 

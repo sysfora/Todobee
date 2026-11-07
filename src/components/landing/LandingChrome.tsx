@@ -5,7 +5,7 @@ import beeLight from "@/assets/todobee-bee-light.png.asset.json";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export const HELP_EMAIL = "help@todobee.com";
+export const HELP_EMAIL = "contact@sysfora.com";
 
 const NAV = [
   { href: "/#features", label: "Features" },
@@ -18,7 +18,7 @@ export function BeeLogo({ className }: { className?: string }) {
   return <img src={beeLight.url} alt="" className={cn("w-auto", className)} />;
 }
 
-export function LandingNav() {
+export function LandingNav({ dashboard = false }: { dashboard?: boolean }) {
   return (
     <header className="sticky top-0 z-30 border-b bg-surface/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
@@ -47,7 +47,9 @@ export function LandingNav() {
             <Github className="h-4 w-4" aria-hidden />
             Star on GitHub
           </a>
-          <SignInButton className={buttonVariants()}>Sign in</SignInButton>
+          <SignInButton dashboard={dashboard} className={buttonVariants()}>
+            Sign in
+          </SignInButton>
         </div>
       </div>
     </header>
@@ -77,9 +79,9 @@ export function LandingFooter() {
               <FooterLink href="/security">Security</FooterLink>
             </FooterColumn>
             <FooterColumn title="Links">
+              <FooterLink href="/accessibility">Accessibility</FooterLink>
               <FooterLink href="/privacy">Privacy</FooterLink>
               <FooterLink href="/terms">Terms</FooterLink>
-              <FooterLink href="/accessibility">Accessibility</FooterLink>
             </FooterColumn>
             <FooterColumn title="Support">
               <FooterLink href="/support">Support Center</FooterLink>

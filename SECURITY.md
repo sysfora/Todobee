@@ -53,7 +53,7 @@ We consider an issue a vulnerability when it is a weakness in an in-scope, suppo
 All security reports and related correspondence should be submitted through private channels to maintain coordinated disclosure:
 
 - **Report a vulnerability via GitHub Security Advisories:** Submit privately at [GitHub Advisories](https://github.com/Sysfora/todobee/security/advisories/new).
-- **Direct email report:** Contact our security team at [sysforagroup@gmail.com](mailto:sysforagroup@gmail.com).
+- **Direct email report:** Contact our security team at [contact@sysfora.com](mailto:contact@sysfora.com).
 
 Please include the nature of your request:
 - **Report a vulnerability.** See [Reporting Security Vulnerabilities](#reporting-security-vulnerabilities).
@@ -63,7 +63,7 @@ Please include the nature of your request:
 
 ## Reporting Security Vulnerabilities
 
-If you discover a security vulnerability in the Todobee app, report it through [GitHub Security Advisories](https://github.com/Sysfora/todobee/security/advisories/new) or email [sysforagroup@gmail.com](mailto:sysforagroup@gmail.com). Please provide as much detail as possible, including:
+If you discover a security vulnerability in the Todobee app, report it through [GitHub Security Advisories](https://github.com/Sysfora/todobee/security/advisories/new) or email [contact@sysfora.com](mailto:contact@sysfora.com). Please provide as much detail as possible, including:
 
 - A clear description of the vulnerability
 - Proof of concept (PoC), where possible
@@ -71,7 +71,7 @@ If you discover a security vulnerability in the Todobee app, report it through [
 - Any relevant code or configuration files
 
 Email the maintainers directly when the report requires immediate, time-critical attention:
-- Sysfora Security Team: [sysforagroup@gmail.com](mailto:sysforagroup@gmail.com)
+- Sysfora Security Team: [contact@sysfora.com](mailto:contact@sysfora.com)
 
 ### AI Reports
 

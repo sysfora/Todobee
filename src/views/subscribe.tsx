@@ -182,7 +182,7 @@ function ChoosePlan({ account }: { account: Account }) {
               yearly
             </p>
             <a
-              href={`mailto:help@todobee.com?subject=${encodeURIComponent("Enterprise Plan")}`}
+              href={`mailto:contact@sysfora.com?subject=${encodeURIComponent("Enterprise Plan")}`}
               className={cn(buttonVariants({ size: "lg" }), "w-full sm:w-auto")}
             >
               <Mail /> Contact us

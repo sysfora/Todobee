@@ -5,19 +5,21 @@ import { Loader2 } from "lucide-react";
 import { useGoogleSignIn, useSignedIn } from "@/hooks/use-google-sign-in";
 import { cn } from "@/lib/utils";
 
-/** Any "Get started" / "Sign in" on the homepage: opens Google sign-in, or the app when already signed in. */
+/** Opens Google sign-in. Shows Dashboard only when `dashboard` is set and a session exists. */
 export function SignInButton({
   className,
   signedInClassName,
+  dashboard = false,
   children,
 }: {
   className?: string;
   signedInClassName?: string;
+  dashboard?: boolean;
   children: ReactNode;
 }) {
   const { signIn, busy } = useGoogleSignIn();
   const signedIn = useSignedIn();
-  if (signedIn) {
+  if (dashboard && signedIn) {
     return (
       <a
         href="/dashboard"

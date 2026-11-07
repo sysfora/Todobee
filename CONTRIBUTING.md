@@ -69,4 +69,4 @@ This project follows a Fork/Feature Branch/Pull Request model. If you're not fam
 
 Again, do check the [developer guide](README.md#getting-started). Much of what you probably need to know is in there.
 
-If you encounter any issues, please visit our [issues page](https://github.com/Sysfora/todobee/issues) or reach out to the maintainers at sysforagroup@gmail.com. Your contributions help make Todobee better!
+If you encounter any issues, please visit our [issues page](https://github.com/Sysfora/todobee/issues) or reach out to the maintainers at contact@sysfora.com. Your contributions help make Todobee better!

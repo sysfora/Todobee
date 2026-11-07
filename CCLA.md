@@ -22,7 +22,7 @@ This process only serves for the transfer of economic rights. So-called moral ri
 
 ### How to use this FLA
 
-This is the version of the Agreement for Legal Entities. It should be accepted by an individual authorized to enter into this Agreement on behalf of the Legal Entity, such as an officer or other authorized representative. By accepting this Agreement, You confirm that You have the authority to bind the Legal Entity and that Contributions Submitted to Us on behalf of the Legal Entity, including Contributions Submitted by Your Designated Employees, are covered by this Agreement. If the Legal Entity does not own the Copyright in the entire Contribution, any other author of the Contribution should also sign the applicable Agreement. In any event, please contact Us at sysforagroup@gmail.com.
+This is the version of the Agreement for Legal Entities. It should be accepted by an individual authorized to enter into this Agreement on behalf of the Legal Entity, such as an officer or other authorized representative. By accepting this Agreement, You confirm that You have the authority to bind the Legal Entity and that Contributions Submitted to Us on behalf of the Legal Entity, including Contributions Submitted by Your Designated Employees, are covered by this Agreement. If the Legal Entity does not own the Copyright in the entire Contribution, any other author of the Contribution should also sign the applicable Agreement. In any event, please contact Us at contact@sysfora.com.
 
 ### Definitions
 

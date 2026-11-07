@@ -22,7 +22,7 @@ This process only serves for the transfer of economic rights. So-called moral ri
 
 ### How to use this FLA
 
-If You are an employee and have created the Contribution as part of Your employment, You need to have Your employer approve this Agreement or sign the Entity version of this document. If You do not own the Copyright in Your Contribution, any other author of the Contribution should also sign this. In any event, please contact Us at sysforagroup@gmail.com.
+If You are an employee and have created the Contribution as part of Your employment, You need to have Your employer approve this Agreement or sign the Entity version of this document. If You do not own the Copyright in Your Contribution, any other author of the Contribution should also sign this. In any event, please contact Us at contact@sysfora.com.
 
 ### Definitions
 

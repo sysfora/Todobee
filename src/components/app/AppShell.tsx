@@ -440,7 +440,7 @@ function Brand() {
   );
 }
 
-const HELP_EMAIL = "help@todobee.com";
+const HELP_EMAIL = "contact@sysfora.com";
 const HELP_LINKS: { icon: typeof Home; text: string; subject: string }[] = [
   { icon: LifeBuoy, text: "Contact Support", subject: "Support Ticket" },
   { icon: MessageSquare, text: "Submit Feedback", subject: "User Feedback" },

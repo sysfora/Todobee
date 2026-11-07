@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LandingNav, LandingFooter } from "@/components/landing/LandingChrome";
+import { applyTheme } from "@/lib/theme";
 
 export default function SupportPage() {
   const [name, setName] = useState("");
@@ -32,6 +33,7 @@ export default function SupportPage() {
 
   useEffect(() => {
     document.documentElement.classList.remove("dark");
+    return () => applyTheme();
   }, []);
 
   async function handleSubmit(e: FormEvent) {
@@ -79,7 +81,7 @@ export default function SupportPage() {
 
       setSubmitted(true);
       toast.success("Support ticket sent", {
-        description: "Your message has been delivered to our team at sysforagroup@gmail.com.",
+        description: "Your message has been delivered to our team at contact@sysfora.com.",
       });
     } catch {
       const err = "Network error while connecting to the support server. Please try again.";
@@ -104,9 +106,9 @@ export default function SupportPage() {
       <LandingNav />
       <main>
         {/* Header Hero */}
-        <section className="px-6 pt-20 pb-12 text-center">
+        <section className="px-4 pt-16 pb-12 text-center sm:px-6 sm:pt-20 sm:pb-14">
           <p className="text-sm font-semibold tracking-widest text-primary uppercase">Support</p>
-          <h1 className="mx-auto mt-3 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
+          <h1 className="mx-auto mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-5xl">
             How can we help?
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
@@ -116,11 +118,10 @@ export default function SupportPage() {
         </section>
 
         {/* Content Container */}
-        <section className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
-          <div className="grid gap-8 lg:grid-cols-12">
-            {/* Form Column */}
+        <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24">
+          <div className="grid gap-6 lg:grid-cols-12">
             <div className="lg:col-span-7">
-              <div className="rounded-3xl border border-border bg-card p-6 shadow-panel sm:p-8">
+              <div className="rounded-2xl border border-border p-5 sm:p-8">
                 {submitted ? (
                   <div className="py-8 text-center">
                     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -131,14 +132,14 @@ export default function SupportPage() {
                     </h2>
                     <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
                       Thank you for contacting us! Your message has been sent to our team at{" "}
-                      <span className="font-medium text-foreground">sysforagroup@gmail.com</span>. We
+                      <span className="font-medium text-foreground">contact@sysfora.com</span>. We
                       typically reply within 24 hours on business days.
                     </p>
                     <div className="mt-8">
                       <button
                         type="button"
                         onClick={handleReset}
-                        className={cn(buttonVariants({ variant: "outline", size: "default" }))}
+                        className={cn(buttonVariants({ variant: "outline", size: "default" }), "shadow-none hover:shadow-none")}
                       >
                         Send another message
                       </button>
@@ -231,7 +232,7 @@ export default function SupportPage() {
                       <button
                         type="submit"
                         disabled={loading}
-                        className={cn(buttonVariants({ size: "lg" }), "w-full gap-2 sm:w-auto px-8")}
+                        className={cn(buttonVariants({ size: "lg" }), "w-full gap-2 px-8 shadow-none hover:shadow-none sm:w-auto")}
                       >
                         {loading ? (
                           <>
@@ -253,21 +254,20 @@ export default function SupportPage() {
 
             {/* Support Info Sidebar Column */}
             <div className="space-y-6 lg:col-span-5">
-              {/* Direct Email Card */}
-              <div className="rounded-3xl border border-border bg-card p-6 shadow-panel">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <div className="rounded-2xl border border-border p-5 sm:p-6">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <Mail className="h-5 w-5" />
                 </div>
                 <h3 className="mt-4 text-lg font-semibold text-foreground">Direct Email</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Prefer sending an email directly from your own mail client?
                 </p>
-                <div className="mt-4 rounded-xl bg-muted/60 p-3.5">
+                <div className="mt-4 rounded-xl border border-border bg-background p-3.5">
                   <a
-                    href="mailto:sysforagroup@gmail.com"
+                    href="mailto:contact@sysfora.com"
                     className="font-medium text-link hover:underline break-all text-sm"
                   >
-                    sysforagroup@gmail.com
+                    contact@sysfora.com
                   </a>
                 </div>
                 <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
@@ -277,10 +277,10 @@ export default function SupportPage() {
               </div>
 
               {/* Security & FAQ links */}
-              <div className="rounded-3xl border border-border bg-card p-6 shadow-panel space-y-5">
+              <div className="space-y-5 rounded-2xl border border-border p-5 sm:p-6">
                 <div>
                   <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
                       <ShieldCheck className="h-4 w-4" />
                     </span>
                     <h3 className="text-base font-semibold text-foreground">Security & Privacy</h3>
@@ -300,7 +300,7 @@ export default function SupportPage() {
 
                 <div>
                   <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
                       <HelpCircle className="h-4 w-4" />
                     </span>
                     <h3 className="text-base font-semibold text-foreground">Frequently Asked Questions</h3>
@@ -320,7 +320,7 @@ export default function SupportPage() {
 
                 <div>
                   <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
                       <Code2 className="h-4 w-4" />
                     </span>
                     <h3 className="text-base font-semibold text-foreground">Open Source Community</h3>

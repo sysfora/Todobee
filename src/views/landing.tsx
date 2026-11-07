@@ -128,7 +128,7 @@ export function LandingPage() {
 
   return (
     <div id="top" className="min-h-dvh bg-surface text-foreground">
-      <LandingNav />
+      <LandingNav dashboard />
       <main>
         {/* Hero */}
         <section className="px-4 pt-16 pb-14 text-center sm:pt-24">
