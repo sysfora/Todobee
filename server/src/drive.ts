@@ -2,6 +2,9 @@ import { ownerToken } from "./google.js";
 import type { PbWorkspace } from "./pb.js";
 import type { AppState } from "./demo/types.js";
 
+export const DRIVE_FULL_MESSAGE =
+  "Google Drive is full, so this workspace couldn't sync. Free up space in Drive and we'll try again. Projects and tasks already here were kept, including anything you restored.";
+
 export class DriveQuotaError extends Error {
   readonly status: number;
   constructor(status: number, detail: string) {
@@ -17,9 +20,10 @@ export function isDriveQuotaError(error: unknown): error is DriveQuotaError {
 
 function checkQuotaFailure(status: number, text: string) {
   if (
+    status === 507 ||
     status === 429 ||
-    (status === 403 &&
-      /quota|rateLimitExceeded|userRateLimitExceeded|dailyLimitExceeded|sharingRateLimitExceeded|rate limit/i.test(
+    ((status === 403 || status === 400) &&
+      /quota|storageQuotaExceeded|insufficientStorage|rateLimitExceeded|userRateLimitExceeded|dailyLimitExceeded|sharingRateLimitExceeded|rate limit/i.test(
         text,
       ))
   ) {
@@ -39,25 +43,49 @@ async function drive(token: string, url: string, init: RequestInit = {}) {
   return res;
 }
 
-export async function ensureFolder(token: string, existing?: string) {
-  if (existing) {
-    const res = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${existing}?fields=id,trashed`,
-      { headers: { authorization: `Bearer ${token}` } },
-    );
-    if (res.ok) {
-      const data = (await res.json()) as { trashed?: boolean; id?: string };
-      if (data.id && !data.trashed) return data.id;
-    } else if (res.status !== 404) {
-      const text = await res.text();
-      checkQuotaFailure(res.status, text);
-      throw new Error(`Google Drive ${res.status}: ${text.slice(0, 280)}`);
-    }
+const FOLDER = "application/vnd.google-apps.folder";
+
+function driveQuery(value: string) {
+  return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+}
+
+async function findFile(token: string, query: string) {
+  const url = new URL("https://www.googleapis.com/drive/v3/files");
+  url.searchParams.set("q", query);
+  url.searchParams.set("fields", "files(id)");
+  url.searchParams.set("pageSize", "1");
+  url.searchParams.set("spaces", "drive");
+  const res = await drive(token, url.toString());
+  const json = (await res.json()) as { files?: { id: string }[] };
+  return json.files?.[0]?.id;
+}
+
+async function folderAlive(token: string, id: string) {
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=id,trashed,mimeType`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  if (res.ok) {
+    const data = (await res.json()) as { trashed?: boolean; id?: string; mimeType?: string };
+    return Boolean(data.id && !data.trashed && data.mimeType === FOLDER);
   }
+  if (res.status === 404) return false;
+  const text = await res.text();
+  checkQuotaFailure(res.status, text);
+  throw new Error(`Google Drive ${res.status}: ${text.slice(0, 280)}`);
+}
+
+/** Reuse the Todobee folder at the Drive root. Create it only when that folder is not there. */
+export async function ensureFolder(token: string, existing?: string) {
+  const found = await findFile(
+    token,
+    `name=${driveQuery("Todobee")} and mimeType='${FOLDER}' and 'root' in parents and trashed=false`,
+  );
+  if (found) return found;
+  if (existing && (await folderAlive(token, existing))) return existing;
   const created = await drive(token, "https://www.googleapis.com/drive/v3/files?fields=id", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name: "Todobee", mimeType: "application/vnd.google-apps.folder" }),
+    body: JSON.stringify({ name: "Todobee", mimeType: FOLDER, parents: ["root"] }),
   });
   const json = (await created.json()) as { id: string };
   return json.id;
@@ -71,6 +99,15 @@ export function workspaceFileName(workspaceName?: string): string {
   return `${clean || "workspace"}.json`;
 }
 
+/** The Drive file keeps the boards only. People, billing and settings stay in Todobee. */
+function toDriveBoard(state: AppState) {
+  return {
+    projects: state.projects ?? [],
+    sections: state.sections ?? [],
+    tasks: state.tasks ?? [],
+  };
+}
+
 export async function writeWorkspaceFile(
   token: string,
   folderId: string,
@@ -78,7 +115,7 @@ export async function writeWorkspaceFile(
   state: AppState,
 ) {
   const fileName = workspaceFileName(state.workspace?.name);
-  const json = JSON.stringify(state);
+  const json = JSON.stringify(toDriveBoard(state));
   const boundary = "todobeejson";
 
   if (!fileId) {
@@ -149,18 +186,19 @@ export async function syncDrive(workspace: PbWorkspace, state: AppState, tokenOv
   if (!token) {
     return { ok: false as const, driveFolderId: workspace.driveFolderId, driveFileId: workspace.driveFileId };
   }
-  let driveFolderId = workspace.driveFolderId || "";
-  let driveFileId = workspace.driveFileId;
-  if (driveFolderId && driveFileId) {
-    try {
-      await writeWorkspaceFile(token, driveFolderId, driveFileId, state);
-      return { ok: true as const, driveFolderId, driveFileId };
-    } catch (error) {
-      if (!missingDriveFile(error)) throw error;
-      driveFileId = undefined;
-    }
+  let driveFolderId = await ensureFolder(token, workspace.driveFolderId || undefined);
+  let driveFileId = workspace.driveFolderId === driveFolderId ? workspace.driveFileId : undefined;
+  if (!driveFileId) {
+    driveFileId = await findFile(
+      token,
+      `name=${driveQuery(workspaceFileName(state.workspace?.name))} and '${driveFolderId}' in parents and trashed=false`,
+    );
   }
-  driveFolderId = await ensureFolder(token, driveFolderId || undefined);
-  driveFileId = await writeWorkspaceFile(token, driveFolderId, undefined, state);
-  return { ok: true as const, driveFolderId, driveFileId };
+  try {
+    driveFileId = await writeWorkspaceFile(token, driveFolderId, driveFileId, state);
+  } catch (error) {
+    if (!missingDriveFile(error)) throw error;
+    driveFileId = await writeWorkspaceFile(token, driveFolderId, undefined, state);
+  }
+  return { ok: true as const, driveFolderId, driveFileId, state };
 }

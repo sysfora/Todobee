@@ -1,4 +1,4 @@
-import { deleteFile, ensureFolder, isDriveQuotaError, syncDrive, uploadFile } from "./drive.js";
+import { deleteFile, DRIVE_FULL_MESSAGE, ensureFolder, isDriveQuotaError, syncDrive, uploadFile } from "./drive.js";
 import { withWorkspaceLock } from "./lock.js";
 import { env } from "./env.js";
 import { accessTokenFor } from "./google.js";
@@ -103,13 +103,10 @@ async function flushWorkspaceUnlocked(workspace: PbWorkspace): Promise<{ synced:
   }
 
   // 3. Sync workspace file (${workspaceName}.json) to Google Drive
-  const uploaded = await syncDrive(
-    { ...workspace, driveFolderId: driveFolderId || workspace.driveFolderId },
-    currentCache,
-    token,
-  );
+  const uploaded = await syncDrive(workspace, currentCache, token);
   operations += 1;
   if (!uploaded.ok || !uploaded.driveFileId) return { synced: false, operations };
+  if (uploaded.state) currentCache = uploaded.state;
 
   const fresh = await pb().collection("workspaces").getOne<PbWorkspace>(workspace.id);
   const mergedCache = applyUploadedFiles(fresh.cache || currentCache, uploadedUrls);
@@ -123,6 +120,7 @@ async function flushWorkspaceUnlocked(workspace: PbWorkspace): Promise<{ synced:
     driveFolderId: uploaded.driveFolderId,
     driveFileId: uploaded.driveFileId,
     cache: mergedCache,
+    driveSyncError: "",
     pendingDriveDeletes: stillCurrent ? [] : remaining,
     ...(stillCurrent ? { driveSynced: true } : {}),
   });
@@ -152,6 +150,13 @@ async function flushAll() {
         console.warn(
           `Google Drive quota reached for workspace ${workspace.id}. Remaining changes stay cached in PocketBase; waiting ${Math.round(env.driveSyncIntervalMs() / 1000)}s before retrying.`,
         );
+        try {
+          await pb().collection("workspaces").update(workspace.id, {
+            driveSyncError: DRIVE_FULL_MESSAGE,
+          });
+        } catch (saveError) {
+          console.error("Couldn't store the Drive sync error", saveError);
+        }
         break;
       }
       console.error(`Drive sync failed for workspace ${workspace.id}`, error);

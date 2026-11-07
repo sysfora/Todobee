@@ -38,10 +38,9 @@ function DrivePermissionError() {
   const { signIn, busy } = useGoogleSignIn({ consent: true });
   return (
     <div role="alert" className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-4 sm:px-5">
-      <p className="text-base font-medium text-foreground">Google permissions are not enabled</p>
+      <p className="text-base font-medium text-foreground">Google Drive permission required</p>
       <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-        You continued without allowing Google Drive. Sign in again and enable the requested
-        permissions so Todobee can save this workspace.
+      Todobee needs your permission to save and sync your work with Google Drive. Please sign in again and allow the requested permissions to enable syncing.
       </p>
       <button
         type="button"

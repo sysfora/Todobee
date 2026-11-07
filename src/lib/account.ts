@@ -11,6 +11,7 @@ export interface Account {
   role: "admin" | "member";
   adminName: string | null;
   driveConnected: boolean;
+  driveSyncError?: string | null;
   workspaces: { id: string; name: string; role: "admin" | "member" }[];
   workspace: {
     id: string;
@@ -55,6 +56,7 @@ export function demoAccount(): Account {
     role: "admin",
     adminName: me?.name ?? "Lilly McCarthy",
     driveConnected: true,
+    driveSyncError: null,
     workspaces: [{ id: "demo", name: state.workspace.name || "Todobee Workspace", role: "admin" }],
     workspace: {
       id: "demo",

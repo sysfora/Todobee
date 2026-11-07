@@ -24,6 +24,7 @@ export interface PbWorkspace {
   stripeSubscriptionId?: string;
   driveFolderId?: string;
   driveFileId?: string;
+  driveSyncError?: string;
   cache?: AppState;
   cacheRevision?: number;
   driveSynced?: boolean;
@@ -112,6 +113,7 @@ async function ensureSchema(db: PocketBase) {
     { name: "stripeSubscriptionId", type: "text", max: 200 },
     { name: "driveFolderId", type: "text", max: 200 },
     { name: "driveFileId", type: "text", max: 200 },
+    { name: "driveSyncError", type: "text", max: 500 },
     { name: "cache", type: "json", maxSize: 8000000 },
     { name: "cacheRevision", type: "number", min: 0 },
     { name: "driveSynced", type: "bool" },

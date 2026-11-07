@@ -16,7 +16,7 @@ import {
   type PbWorkspace,
 } from "./pb.js";
 import { accessTokenFor, driveScopeGranted, exchangeCode, googleAuthUrl, googleProfile, rememberAccess } from "./google.js";
-import { downloadFile, ensureFolder, uploadFile } from "./drive.js";
+import { downloadFile, DRIVE_FULL_MESSAGE, ensureFolder, isDriveQuotaError, uploadFile } from "./drive.js";
 import { startDriveSync, stopDriveSync, syncPendingWorkspaces } from "./drive-sync.js";
 import { applyStripeSubscription, createCheckout, getStripe, updateSubscription } from "./billing.js";
 import { bindViewer, claimIdentity, canReadFile, fileIds, initialWorkspaceState, mergeState, present, seatProblem, type Viewer } from "./state.js";
@@ -171,6 +171,7 @@ function accountPayload(
     role: member.role,
     adminName,
     driveConnected,
+    driveSyncError: workspace.driveSyncError || null,
     workspaces,
     workspace: {
       id: workspace.id,
@@ -628,6 +629,13 @@ app.post("/api/files", async (c) => {
     const id = await uploadFile(token, folder, body.name.slice(0, 180), body.mimeType || match[1], data);
     return c.json({ driveUrl: `/api/files/${id}` });
   } catch (error) {
+    if (isDriveQuotaError(error)) {
+      await pb()
+        .collection("workspaces")
+        .update(session.workspace.id, { driveSyncError: DRIVE_FULL_MESSAGE })
+        .catch(() => undefined);
+      return c.json({ error: DRIVE_FULL_MESSAGE }, 507);
+    }
     console.error(error);
     return c.json({ error: "Google Drive didn't accept that file." }, 502);
   }

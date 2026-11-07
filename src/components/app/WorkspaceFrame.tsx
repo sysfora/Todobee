@@ -20,7 +20,7 @@ export function WorkspaceFrame({
   const router = useRouter();
   const hydrated = useStoreHydrated();
   const openedWorkspace = useRef<string | undefined>(undefined);
-  const query = useQuery({ ...accountQuery, enabled: !isDemo, retry: false });
+  const query = useQuery({ ...accountQuery, enabled: !isDemo, retry: false, refetchInterval: 20_000 });
 
   useEffect(() => {
     if (isDemo) void hydrateStore("admin");
@@ -85,6 +85,16 @@ export function WorkspaceFrame({
   }
 
   return (
-    <AppShell role={account.role}>{children}</AppShell>
+    <AppShell role={account.role}>
+      {account.driveSyncError && (
+        <p
+          role="alert"
+          className="mx-4 mt-4 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm leading-relaxed text-foreground md:mx-8"
+        >
+          {account.driveSyncError}
+        </p>
+      )}
+      {children}
+    </AppShell>
   );
 }
