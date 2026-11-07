@@ -11,6 +11,7 @@ const NAV = [
   { href: "/#features", label: "Features" },
   { href: "/#pricing", label: "Pricing" },
   { href: "/#faq", label: "FAQ" },
+  { href: "/security", label: "Security" },
 ];
 
 export function BeeLogo({ className }: { className?: string }) {
