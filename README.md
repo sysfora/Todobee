@@ -184,7 +184,7 @@ We offer options to support the ongoing open-source development of Todobee:
 - **Donations:** Help us maintain the codebase and add features faster.
 - **Corporate Sponsorship:** Get your company logo and backlink featured in the repository and documentation.
 
-Contact us at [sysforagroup@gmail.com](mailto:sysforagroup@gmail.com) for sponsorship inquiries.
+Contact us at [contact@sysfora.com](mailto:contact@sysfora.com) for sponsorship inquiries.
 
 <br />
 <br />
