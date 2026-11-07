@@ -73,10 +73,11 @@
 
 ## ✨ Features
 
-| Clear Kanban Boards | All Tasks in One Place |
-| ------------------- | ---------------------- |
+| **Clear Kanban Boards** | **All Tasks in One Place** |
+|-------------------------|----------------------------|
 | **Drag-and-drop cards between sections.** Group any board by person, label, priority, or due date, and filter down to the exact work that matters right now. | **Checklists, notes, files, priorities, and colored labels.** Keep discussions, context, and attachments right on the task card. |
-| **Google Drive Persistence** | **Focused Team Collaboration** |
+| **Google Drive Persistence** | **Focused Team** |
+|------------------------------|--------------------------------|
 | **Your workspace data belongs to you.** Projects, tasks, notes, and files sync directly to a dedicated `Todobee` folder in the workspace admin's Google Drive. | **Role-based visibility.** Admins oversee the whole workspace; members see only assigned projects. Send invites by email and accept with Google. |
 
 # Intro
