@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { accountQuery } from "@/lib/account";
+import { accountQuery, PENDING_INVITE_KEY } from "@/lib/account";
 
 function ReturnInner() {
   const params = useSearchParams();
@@ -25,12 +25,14 @@ function ReturnInner() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sessionId }),
       });
+      const body = (await res.json().catch(() => ({}))) as { kind?: string };
       if (!res.ok) {
         setMessage("We couldn't confirm the payment. If you were charged, refresh in a moment.");
         return;
       }
       await queryClient.invalidateQueries({ queryKey: accountQuery.queryKey });
-      router.replace("/dashboard");
+      const pendingInvite = window.sessionStorage.getItem(PENDING_INVITE_KEY);
+      router.replace(pendingInvite ? "/users" : body.kind === "change" ? "/settings?section=subscriptions" : "/dashboard");
     })();
   }, [params, queryClient, router]);
 

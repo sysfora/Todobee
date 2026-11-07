@@ -1,9 +1,11 @@
 "use client";
 import { useNavigate } from "@/lib/nav";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ChevronsUpDown, Trash2 } from "lucide-react";
-import { actions, useAppState } from "@/lib/store";
+import { PENDING_INVITE_KEY } from "@/lib/account";
+import { isDemo } from "@/lib/demo-mode";
+import { actions, useAppState, useStoreHydrated } from "@/lib/store";
 import type { User } from "@/lib/types";
 import {
   activeInvites,
@@ -24,7 +26,32 @@ import { SearchInput } from "@/components/app/SearchInput";
 
 export function UsersPage() {
   const navigate = useNavigate();
+  const hydrated = useStoreHydrated();
   const { users, currentUserId, workspace, invites: allInvites } = useAppState();
+  useEffect(() => {
+    if (!hydrated || isDemo) return;
+    const raw = sessionStorage.getItem(PENDING_INVITE_KEY);
+    if (!raw) return;
+    let pending: { name?: string; email?: string; role?: User["role"]; fromSeats?: number };
+    try {
+      pending = JSON.parse(raw) as typeof pending;
+    } catch {
+      sessionStorage.removeItem(PENDING_INVITE_KEY);
+      return;
+    }
+    if (!pending.email || !pending.name) {
+      sessionStorage.removeItem(PENDING_INVITE_KEY);
+      return;
+    }
+    if (typeof pending.fromSeats === "number" && workspace.seats <= pending.fromSeats) return;
+    sessionStorage.removeItem(PENDING_INVITE_KEY);
+    const err = actions.inviteUser(
+      { name: pending.name, email: pending.email, role: pending.role === "Admin" ? "Admin" : "Member" },
+      { addSeat: false },
+    );
+    if (err) toast.error(err);
+    else toast.success(`Invite saved for ${pending.email}`);
+  }, [hydrated, workspace.seats]);
   const invites = activeInvites(allInvites);
   const used = users.length + invites.length;
   const [seatsFull, setSeatsFull] = useState(false);

@@ -83,6 +83,8 @@ export const accountQuery = queryOptions({
   staleTime: 60_000,
 });
 
+export const PENDING_INVITE_KEY = "todobee-pending-invite";
+
 /** Sends the admin to Stripe Checkout for a yearly per-seat plan. */
 export async function startCheckout(plan: PlanId, seats: number) {
   if (isDemo) {
@@ -99,4 +101,41 @@ export async function startCheckout(plan: PlanId, seats: number) {
   const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
   if (!res.ok || !body.url) throw new Error(body.error || "Stripe checkout didn't start.");
   window.location.href = body.url;
+}
+
+/**
+ * Plan and seat changes that cost money open Stripe for that amount.
+ * A cheaper plan or fewer seats is saved here, with nothing due today.
+ */
+export async function startPlanChange(plan: PlanId, seats: number) {
+  if (isDemo) {
+    actions.syncWorkspace({ plan, seats, renewsAt: defaultRenewal() });
+    return "updated" as const;
+  }
+  const res = await fetch("/api/billing/update", {
+    method: "POST",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ plan, seats }),
+  });
+  const body = (await res.json().catch(() => ({}))) as {
+    url?: string;
+    error?: string;
+    plan?: PlanId;
+    seats?: number;
+    renewsAt?: string | null;
+    name?: string;
+  };
+  if (!res.ok) throw new Error(body.error || "Stripe checkout didn't start.");
+  if (body.url) {
+    window.location.href = body.url;
+    return "redirect" as const;
+  }
+  actions.syncWorkspace({
+    plan: body.plan ?? plan,
+    seats: body.seats ?? seats,
+    renewsAt: body.renewsAt,
+    name: body.name,
+  });
+  return "updated" as const;
 }

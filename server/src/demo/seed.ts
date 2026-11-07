@@ -172,18 +172,18 @@ export function createSeed(now: Date = new Date()): AppState {
 
   // Marketing Campaign
   addProject(
-    "p-marketing",
+    "prj-marketing",
     "Marketing Campaign",
     "red",
     true,
     ["u-admin", "u-james", "u-franklin"],
     ["Todo", "Review", "Done", "Ideas"],
   );
-  addTask("p-marketing", 0, "Design hero section", {
+  addTask("prj-marketing", 0, "Design hero section", {
     assignees: ["u-james"],
     labels: ["l-design"],
   });
-  addTask("p-marketing", 0, "Write launch announcement", {
+  addTask("prj-marketing", 0, "Write launch announcement", {
     due: d(0),
     priority: "medium",
     assignees: ["u-admin"],
@@ -191,60 +191,60 @@ export function createSeed(now: Date = new Date()): AppState {
     checklist: [1, 3],
     description: "Short announcement for the blog, newsletter and social channels.",
   });
-  addTask("p-marketing", 0, "Improve error handling on forms", {
+  addTask("prj-marketing", 0, "Improve error handling on forms", {
     done: at(0, 9),
     assignees: ["u-admin"],
   });
-  addTask("p-marketing", 0, "Prepare social media assets", {
+  addTask("prj-marketing", 0, "Prepare social media assets", {
     due: d(12),
     assignees: ["u-franklin"],
     labels: ["l-design"],
   });
-  addTask("p-marketing", 0, "Collect partner logos", { assignees: ["u-admin", "u-james"] });
+  addTask("prj-marketing", 0, "Collect partner logos", { assignees: ["u-admin", "u-james"] });
 
-  addTask("p-marketing", 1, "Review ad copy variations", {
+  addTask("prj-marketing", 1, "Review ad copy variations", {
     assignees: ["u-james"],
     labels: ["l-bug"],
   });
-  addTask("p-marketing", 1, "Approve campaign budget", {
+  addTask("prj-marketing", 1, "Approve campaign budget", {
     due: d(-3),
     priority: "high",
     assignees: ["u-admin", "u-james"],
     labels: ["l-feature"],
     checklist: [3, 3],
   });
-  addTask("p-marketing", 1, "Review engagement report", {
+  addTask("prj-marketing", 1, "Review engagement report", {
     done: at(-1),
     due: d(-10),
     assignees: ["u-franklin"],
     checklist: [4, 4],
   });
-  addTask("p-marketing", 1, "Optimize homepage images", {
+  addTask("prj-marketing", 1, "Optimize homepage images", {
     done: at(-1, 15),
     due: d(-14),
     assignees: ["u-james"],
     labels: ["l-feature", "l-nice"],
   });
-  addTask("p-marketing", 1, "Draft email campaign copy", {
+  addTask("prj-marketing", 1, "Draft email campaign copy", {
     done: at(-2),
     due: d(-8),
     assignees: ["u-james", "u-admin"],
     labels: ["l-research"],
     checklist: [0, 1],
   });
-  addTask("p-marketing", 1, "Set up UTM tracking", {
+  addTask("prj-marketing", 1, "Set up UTM tracking", {
     due: d(30),
     assignees: ["u-admin"],
     labels: ["l-improvement"],
   });
 
-  addTask("p-marketing", 2, "Create mobile navigation", {
+  addTask("prj-marketing", 2, "Create mobile navigation", {
     done: at(-3),
     due: d(-5),
     assignees: ["u-franklin"],
     comments: [{ userId: "u-james", text: "Looks great on iOS and Android." }],
   });
-  addTask("p-marketing", 2, "Fix login validation", {
+  addTask("prj-marketing", 2, "Fix login validation", {
     done: at(-4),
     due: d(-9),
     priority: "high",
@@ -252,7 +252,7 @@ export function createSeed(now: Date = new Date()): AppState {
     labels: ["l-bug", "l-research"],
     comments: [{ userId: "u-franklin", text: "Verified on staging." }],
   });
-  addTask("p-marketing", 2, "Clean up database indexes", {
+  addTask("prj-marketing", 2, "Clean up database indexes", {
     done: at(-5),
     due: d(-4),
     assignees: ["u-admin"],
@@ -261,132 +261,132 @@ export function createSeed(now: Date = new Date()): AppState {
       { userId: "u-admin", text: "Nice work!" },
     ],
   });
-  addTask("p-marketing", 2, "Write landing page headline options", {
+  addTask("prj-marketing", 2, "Write landing page headline options", {
     done: monthAgo(1),
     due: d(-30),
     assignees: ["u-james"],
   });
-  addTask("p-marketing", 2, "Plan weekly content calendar", {
+  addTask("prj-marketing", 2, "Plan weekly content calendar", {
     done: monthAgo(1, 20),
     due: d(-33),
     assignees: ["u-franklin"],
     checklist: [4, 4],
   });
-  addTask("p-marketing", 3, "Partner webinar series", { checklist: [0, 1] });
+  addTask("prj-marketing", 3, "Partner webinar series", { checklist: [0, 1] });
 
   // Content Calendar
-  addProject("p-content", "Content Calendar", "orange", true, ["u-admin", "u-grace", "u-amelia"]);
-  addTask("p-content", 0, "Outline November newsletter", {
+  addProject("prj-content", "Content Calendar", "orange", true, ["u-admin", "u-grace", "u-amelia"]);
+  addTask("prj-content", 0, "Outline November newsletter", {
     due: d(4),
     assignees: ["u-grace"],
     labels: ["l-marketing"],
   });
-  addTask("p-content", 0, "Interview customer for case study", {
+  addTask("prj-content", 0, "Interview customer for case study", {
     due: d(9),
     assignees: ["u-admin", "u-amelia"],
     priority: "low",
   });
-  addTask("p-content", 1, "Edit product tutorial video", {
+  addTask("prj-content", 1, "Edit product tutorial video", {
     assignees: ["u-amelia"],
     checklist: [2, 5],
   });
-  addTask("p-content", 2, "Publish holiday gift guide", {
+  addTask("prj-content", 2, "Publish holiday gift guide", {
     done: monthAgo(2),
     assignees: ["u-grace"],
   });
-  addTask("p-content", 2, "Refresh evergreen blog posts", {
+  addTask("prj-content", 2, "Refresh evergreen blog posts", {
     done: monthAgo(2, 22),
     assignees: ["u-amelia"],
   });
 
   // Customer Feedback Inbox
-  addProject("p-feedback", "Customer Feedback Inbox", "rose", false, ["u-admin", "u-david"]);
-  addTask("p-feedback", 0, "Tag last week's survey responses", {
+  addProject("prj-feedback", "Customer Feedback Inbox", "rose", false, ["u-admin", "u-david"]);
+  addTask("prj-feedback", 0, "Tag last week's survey responses", {
     assignees: ["u-david"],
     labels: ["l-research"],
   });
-  addTask("p-feedback", 0, "Reply to enterprise feature requests", {
+  addTask("prj-feedback", 0, "Reply to enterprise feature requests", {
     due: d(-1),
     priority: "high",
     assignees: ["u-admin"],
     labels: ["l-urgent"],
   });
-  addTask("p-feedback", 2, "Summarize Q3 feedback themes", {
+  addTask("prj-feedback", 2, "Summarize Q3 feedback themes", {
     done: monthAgo(3),
     assignees: ["u-david"],
   });
 
   // Website Builder
-  addProject("p-website", "Website Builder", "indigo", true, ["u-admin", "u-james", "u-sarah"]);
-  addTask("p-website", 0, "Drag-and-drop page sections", {
+  addProject("prj-website", "Website Builder", "indigo", true, ["u-admin", "u-james", "u-sarah"]);
+  addTask("prj-website", 0, "Drag-and-drop page sections", {
     priority: "high",
     assignees: ["u-sarah"],
     labels: ["l-feature"],
     checklist: [1, 4],
   });
-  addTask("p-website", 0, "Custom domain settings screen", {
+  addTask("prj-website", 0, "Custom domain settings screen", {
     due: d(18),
     assignees: ["u-james"],
     labels: ["l-design"],
   });
-  addTask("p-website", 1, "Template gallery filters", {
+  addTask("prj-website", 1, "Template gallery filters", {
     assignees: ["u-sarah"],
     labels: ["l-improvement"],
   });
-  addTask("p-website", 2, "Autosave drafts", { done: monthAgo(3, 18), assignees: ["u-james"] });
-  addTask("p-website", 2, "Image upload compression", {
+  addTask("prj-website", 2, "Autosave drafts", { done: monthAgo(3, 18), assignees: ["u-james"] });
+  addTask("prj-website", 2, "Image upload compression", {
     done: monthAgo(4),
     assignees: ["u-sarah"],
   });
 
   // Android Development
-  addProject("p-android", "Android Development", "lime", false, ["u-admin", "u-robert"]);
-  addTask("p-android", 0, "Offline mode for task lists", {
+  addProject("prj-android", "Android Development", "lime", false, ["u-admin", "u-robert"]);
+  addTask("prj-android", 0, "Offline mode for task lists", {
     assignees: ["u-robert"],
     labels: ["l-feature"],
   });
-  addTask("p-android", 1, "Push notification settings", {
+  addTask("prj-android", 1, "Push notification settings", {
     due: d(6),
     assignees: ["u-robert", "u-admin"],
   });
-  addTask("p-android", 2, "Fix crash on rotation", {
+  addTask("prj-android", 2, "Fix crash on rotation", {
     done: monthAgo(4, 25),
     assignees: ["u-robert"],
     labels: ["l-bug"],
   });
 
   // SEO Optimization
-  addProject("p-seo", "SEO Optimization", "pink", false, ["u-admin", "u-jessica", "u-grace"]);
-  addTask("p-seo", 0, "Audit meta descriptions", { assignees: ["u-jessica"] });
-  addTask("p-seo", 0, "Fix broken internal links", { assignees: ["u-grace"], priority: "medium" });
-  addTask("p-seo", 2, "Submit updated sitemap", { done: monthAgo(5), assignees: ["u-jessica"] });
+  addProject("prj-seo", "SEO Optimization", "pink", false, ["u-admin", "u-jessica", "u-grace"]);
+  addTask("prj-seo", 0, "Audit meta descriptions", { assignees: ["u-jessica"] });
+  addTask("prj-seo", 0, "Fix broken internal links", { assignees: ["u-grace"], priority: "medium" });
+  addTask("prj-seo", 2, "Submit updated sitemap", { done: monthAgo(5), assignees: ["u-jessica"] });
 
   // Payment Integration
-  addProject("p-payments", "Payment Integration", "teal", false, [
+  addProject("prj-payments", "Payment Integration", "teal", false, [
     "u-admin",
     "u-david",
     "u-franklin",
   ]);
-  addTask("p-payments", 0, "Add invoice PDF export", {
+  addTask("prj-payments", 0, "Add invoice PDF export", {
     assignees: ["u-david"],
     labels: ["l-feature"],
   });
-  addTask("p-payments", 1, "Test refund webhooks", {
+  addTask("prj-payments", 1, "Test refund webhooks", {
     assignees: ["u-franklin"],
     checklist: [2, 3],
   });
-  addTask("p-payments", 2, "Currency formatting", {
+  addTask("prj-payments", 2, "Currency formatting", {
     done: monthAgo(5, 20),
     assignees: ["u-david"],
   });
 
   // Application UI
-  addProject("p-appui", "Application UI", "green", false, ["u-admin", "u-amelia"]);
-  addTask("p-appui", 0, "Empty state illustrations", {
+  addProject("prj-appui", "Application UI", "green", false, ["u-admin", "u-amelia"]);
+  addTask("prj-appui", 0, "Empty state illustrations", {
     assignees: ["u-amelia"],
     labels: ["l-design", "l-nice"],
   });
-  addTask("p-appui", 2, "Keyboard shortcuts panel", { done: monthAgo(6), assignees: ["u-amelia"] });
+  addTask("prj-appui", 2, "Keyboard shortcuts panel", { done: monthAgo(6), assignees: ["u-amelia"] });
 
   return {
     currentUserId: CURRENT_USER_ID,

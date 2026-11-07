@@ -7,6 +7,7 @@ import { Check, Download, Lock, Monitor, Moon, Pencil, Sun, Trash2, Upload } fro
 import { getTheme, setTheme, type Theme } from "@/lib/theme";
 import { playCompleteSound, setSoundsEnabled, soundsEnabled } from "@/lib/sounds";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { startPlanChange } from "@/lib/account";
 import { isDemo } from "@/lib/demo-mode";
 import { actions, DEFAULT_PREFS, getState, useAppState } from "@/lib/store";
 import { SWATCHES, labelVar, swatchName, type Swatch } from "@/lib/colors";
@@ -504,37 +505,17 @@ function SubscriptionSection() {
       toast.error(err);
       return;
     }
-    if (isDemo) {
-      actions.syncWorkspace({ plan, seats, renewsAt });
-      toast.success("Demo plan updated", { description: "Nothing was charged." });
-      return;
-    }
-    const res = await fetch("/api/billing/update", {
-      method: "POST",
-      credentials: "include",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ plan, seats }),
-    });
-    const body = (await res.json().catch(() => ({}))) as {
-      error?: string;
-      plan?: PlanId;
-      seats?: number;
-      renewsAt?: string | null;
-      name?: string;
-    };
-    if (!res.ok) {
-      toast.error("We couldn't update your subscription", {
-        description: body.error ?? "Please try again.",
+    try {
+      const result = await startPlanChange(plan, seats);
+      if (result === "redirect") return;
+      toast.success(isDemo ? "Demo plan updated" : "Subscription updated", {
+        description: isDemo ? "Nothing was charged." : "Nothing is due today. The new price starts at renewal.",
       });
-      return;
+    } catch (error) {
+      toast.error("We couldn't update your subscription", {
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
     }
-    actions.syncWorkspace({
-      plan: body.plan ?? plan,
-      seats: body.seats ?? seats,
-      renewsAt: body.renewsAt,
-      name: body.name,
-    });
-    toast.success("Subscription updated");
   };
 
   return (
@@ -610,7 +591,9 @@ function SubscriptionSection() {
           <Button disabled={!changed || !!error} onClick={requestSave}>
             {plan === "enterprise" && workspace.plan !== "enterprise"
               ? "Contact sales"
-              : "Update subscription"}
+              : bill.dueToday > 0
+                ? `Pay ${money(bill.dueToday)}`
+                : "Update subscription"}
           </Button>
         </div>
       </div>

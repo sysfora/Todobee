@@ -1,7 +1,7 @@
 "use client";
 import { Link, useNavigate } from "@/lib/nav";
 import { useParams, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, CircleCheck, Columns3, Filter, List, Plus, Rows3, Star } from "lucide-react";
 import { actions, useAppState } from "@/lib/store";
 import {
@@ -41,10 +41,16 @@ const GROUP_OPTIONS: { value: GroupBy; label: string }[] = [
 ];
 
 export function ProjectBoard() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { projectId: routeProjectId = "" } = useParams<{ projectId: string }>();
+  const projectId = routeProjectId.startsWith("p-") ? `prj-${routeProjectId.slice(2)}` : routeProjectId;
   const openTaskId = useSearchParams().get("task") ?? undefined;
   const navigate = useNavigate();
   const state = useAppState();
+  useEffect(() => {
+    if (!routeProjectId.startsWith("p-")) return;
+    const task = openTaskId ? `?task=${encodeURIComponent(openTaskId)}` : "";
+    navigate({ to: `/projects/${projectId}${task}`, replace: true });
+  }, [navigate, openTaskId, projectId, routeProjectId]);
   const project = state.projects.find((p) => p.id === projectId);
   const [filter, setFilter] = useState<TaskFilter>(emptyFilter);
   const [filtersOpen, setFiltersOpen] = useState(false);

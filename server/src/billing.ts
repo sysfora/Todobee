@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import { env } from "./env.js";
 import { pb, type PbWorkspace } from "./pb.js";
-import type { PlanId } from "./demo/subscription.js";
+import { billingChange, defaultRenewal, getPlan, type PlanId } from "./demo/subscription.js";
 
 let stripe: Stripe | null = null;
 
@@ -53,21 +53,24 @@ export async function applyStripeSubscription(sub: Stripe.Subscription, fallback
   });
 }
 
-export async function createCheckout(workspace: PbWorkspace, email: string, plan: PlanId, seats: number, origin = env.appUrl()) {
+async function ensureCustomer(workspace: PbWorkspace, email: string) {
   const stripeClient = getStripe();
+  if (!stripeClient) throw new Error("Stripe is not configured. Set STRIPE_SECRET_KEY and the price ids in .env.");
+  if (workspace.stripeCustomerId) return { stripeClient, customer: workspace.stripeCustomerId };
+  const created = await stripeClient.customers.create({
+    email,
+    metadata: { workspaceId: workspace.id },
+  });
+  await pb().collection("workspaces").update(workspace.id, { stripeCustomerId: created.id });
+  return { stripeClient, customer: created.id };
+}
+
+export async function createCheckout(workspace: PbWorkspace, email: string, plan: PlanId, seats: number, origin = env.appUrl()) {
   const price = priceFor(plan);
-  if (!stripeClient || !price) {
+  if (!price) {
     throw new Error("Stripe is not configured. Set STRIPE_SECRET_KEY and the price ids in .env.");
   }
-  let customer = workspace.stripeCustomerId;
-  if (!customer) {
-    const created = await stripeClient.customers.create({
-      email,
-      metadata: { workspaceId: workspace.id },
-    });
-    customer = created.id;
-    await pb().collection("workspaces").update(workspace.id, { stripeCustomerId: customer });
-  }
+  const { stripeClient, customer } = await ensureCustomer(workspace, email);
   const session = await stripeClient.checkout.sessions.create({
     mode: "subscription",
     customer,
@@ -83,6 +86,71 @@ export async function createCheckout(workspace: PbWorkspace, email: string, plan
   return session.url;
 }
 
+function changeDescription(
+  from: { plan: PlanId; seats: number },
+  to: { plan: PlanId; seats: number },
+  daysLeft: number,
+) {
+  const parts: string[] = [];
+  if (to.seats !== from.seats) {
+    const diff = to.seats - from.seats;
+    parts.push(`${Math.abs(diff)} ${diff > 0 ? "additional" : "fewer"} seat${Math.abs(diff) === 1 ? "" : "s"}`);
+  }
+  if (to.plan !== from.plan) parts.push(`${getPlan(to.plan).name} plan`);
+  const what = parts.join(" and ") || "subscription";
+  return `Todobee · ${what}, for the ${daysLeft} days left in this billing year`;
+}
+
+/**
+ * Checkout for a plan or seat change. The amount is only the extra yearly cost
+ * for the days left until renewal. The subscription itself changes after payment.
+ */
+export async function createChangeCheckout(
+  workspace: PbWorkspace,
+  email: string,
+  plan: PlanId,
+  seats: number,
+  origin = env.appUrl(),
+) {
+  const price = priceFor(plan);
+  if (!price) throw new Error("Stripe is not configured. Set STRIPE_SECRET_KEY and the price ids in .env.");
+  if (!workspace.stripeSubscriptionId) throw new Error("This workspace doesn't have a Stripe subscription yet.");
+  const from = { plan: workspace.plan, seats: workspace.seats };
+  const renewsAt = workspace.renewsAt || defaultRenewal();
+  const bill = billingChange(from, { plan, seats }, renewsAt);
+  const cents = Math.round(bill.dueToday * 100);
+  if (cents <= 0) return null;
+  const { stripeClient, customer } = await ensureCustomer(workspace, email);
+  const session = await stripeClient.checkout.sessions.create({
+    mode: "payment",
+    customer,
+    client_reference_id: workspace.id,
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: cents,
+          product_data: { name: changeDescription(from, { plan, seats }, bill.daysLeft) },
+        },
+      },
+    ],
+    success_url: `${origin}/billing/return?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/settings?section=subscriptions`,
+    metadata: {
+      workspaceId: workspace.id,
+      kind: "change",
+      plan,
+      seats: String(seats),
+      fromPlan: workspace.plan,
+      fromSeats: String(workspace.seats),
+    },
+  });
+  if (!session.url) throw new Error("Stripe did not return a checkout URL.");
+  return session.url;
+}
+
+/** Switch the saved subscription without charging again. Checkout already collected any amount due today. */
 export async function updateSubscription(workspace: PbWorkspace, plan: PlanId, seats: number) {
   const stripeClient = getStripe();
   const price = priceFor(plan);
@@ -91,14 +159,19 @@ export async function updateSubscription(workspace: PbWorkspace, plan: PlanId, s
   const current = await stripeClient.subscriptions.retrieve(workspace.stripeSubscriptionId);
   const item = current.items.data[0];
   if (!item) throw new Error("The Stripe subscription has no items.");
-  const oldAmount = (item.price.unit_amount ?? 0) * (item.quantity ?? 1);
-  const nextPrice = await stripeClient.prices.retrieve(price);
-  const newAmount = (nextPrice.unit_amount ?? 0) * seats;
   const updated = await stripeClient.subscriptions.update(workspace.stripeSubscriptionId, {
     items: [{ id: item.id, price, quantity: seats }],
-    proration_behavior: newAmount > oldAmount ? "always_invoice" : "none",
+    proration_behavior: "none",
     metadata: { ...current.metadata, workspaceId: workspace.id, plan },
   });
   await applyStripeSubscription(updated, { workspaceId: workspace.id, plan });
   return pb().collection("workspaces").getOne<PbWorkspace>(workspace.id);
+}
+
+/** Apply a paid seat or plan change once. A repeated or outdated checkout does not move the subscription again. */
+export async function applyPaidChange(workspaceId: string, plan: PlanId, seats: number, fromPlan: PlanId, fromSeats: number) {
+  const workspace = await pb().collection("workspaces").getOne<PbWorkspace>(workspaceId);
+  if (workspace.plan === plan && workspace.seats === seats) return workspace;
+  if (workspace.plan !== fromPlan || workspace.seats !== fromSeats) return workspace;
+  return updateSubscription(workspace, plan, seats);
 }

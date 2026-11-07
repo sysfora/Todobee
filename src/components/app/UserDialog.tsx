@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PENDING_INVITE_KEY, startPlanChange } from "@/lib/account";
 import { isDemo } from "@/lib/demo-mode";
 import { actions, useAppState } from "@/lib/store";
 import type { Role, User } from "@/lib/types";
@@ -71,10 +72,30 @@ export function UserDialog({
     );
     if (taken) return setError("A user with this email already exists");
     if (!user) {
-      const err = actions.inviteUser(
-        { ...parsed.data, role: showRole ? role : "Member" },
-        { addSeat },
-      );
+      const invite = { ...parsed.data, role: showRole ? role : "Member" };
+      if (!isDemo && addSeat) {
+        sessionStorage.setItem(
+          PENDING_INVITE_KEY,
+          JSON.stringify({ ...invite, fromSeats: workspace.seats }),
+        );
+        void startPlanChange(workspace.plan, workspace.seats + 1)
+          .then((result) => {
+            if (result === "redirect") return;
+            sessionStorage.removeItem(PENDING_INVITE_KEY);
+            const err = actions.inviteUser(invite, { addSeat: false });
+            if (err) return setError(err);
+            toast.success(`Invite saved for ${parsed.data.email}`, {
+              description: "It stays open for 30 days and holds a seat until then.",
+            });
+            onOpenChange(false);
+          })
+          .catch((error: unknown) => {
+            sessionStorage.removeItem(PENDING_INVITE_KEY);
+            setError(error instanceof Error ? error.message : "Stripe checkout didn't start.");
+          });
+        return;
+      }
+      const err = actions.inviteUser(invite, { addSeat });
       if (err) return setError(err);
       toast.success(`Invite saved for ${parsed.data.email}`, {
         description: isDemo

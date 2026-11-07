@@ -175,6 +175,11 @@ function set(updater: (s: AppState) => AppState) {
   emit();
 }
 
+/** Project links use prj-; older boards used p-. */
+function projectLinkId(id: string) {
+  return id.startsWith("p-") ? `prj-${id.slice(2)}` : id;
+}
+
 /** Older saves used Manager/User roles; everyone who isn't an Admin is now a Member. */
 function migrate(s: AppState): AppState {
   const ws = s.workspace ?? { name: "Todobee Workspace", plan: "premium", seats: 10 };
@@ -185,9 +190,18 @@ function migrate(s: AppState): AppState {
     users: s.users.map((u) => (u.role === "Admin" ? u : { ...u, role: "Member" })),
     projects: s.projects.map((p) => ({
       ...p,
+      id: projectLinkId(p.id),
       favoriteBy: p.favoriteBy ?? (p.favorite ? [s.currentUserId] : []),
     })),
-    tasks: s.tasks.map((t) => ({ ...t, files: t.files ?? [] })),
+    sections: (s.sections ?? []).map((section) => ({
+      ...section,
+      projectId: projectLinkId(section.projectId),
+    })),
+    tasks: s.tasks.map((t) => ({
+      ...t,
+      projectId: projectLinkId(t.projectId),
+      files: t.files ?? [],
+    })),
   };
 }
 
@@ -307,7 +321,7 @@ export const actions = {
     if (!isAdminUser(state)) return "";
     const name = input.name.trim();
     if (!name || state.projects.some((project) => projectKey(project.name) === projectKey(name))) return "";
-    const id = uid("p");
+    const id = uid("prj");
     set((s) => ({
       ...s,
       projects: [
@@ -648,7 +662,7 @@ export const actions = {
     const projects = [
       ...state.projects.filter((project) => !removedIds.has(project.id)),
       ...chosen.map((project) => {
-        const id = uid("p");
+        const id = uid("prj");
         idMap.set(project.id, id);
         const memberIds = mapPeople(project.memberIds, userMap);
         if (!memberIds.includes(state.currentUserId)) memberIds.push(state.currentUserId);

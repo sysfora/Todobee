@@ -18,13 +18,13 @@ import {
 import { accessTokenFor, driveScopeGranted, exchangeCode, googleAuthUrl, googleProfile, rememberAccess } from "./google.js";
 import { downloadFile, DRIVE_FULL_MESSAGE, ensureFolder, isDriveQuotaError, uploadFile } from "./drive.js";
 import { startDriveSync, stopDriveSync, syncPendingWorkspaces } from "./drive-sync.js";
-import { applyStripeSubscription, createCheckout, getStripe, updateSubscription } from "./billing.js";
+import { applyPaidChange, applyStripeSubscription, createChangeCheckout, createCheckout, getStripe, updateSubscription } from "./billing.js";
 import { bindViewer, claimIdentity, canReadFile, fileIds, initialWorkspaceState, mergeState, present, seatProblem, type Viewer } from "./state.js";
 import { sendAssignmentEmail, sendInviteEmail, sendSupportEmail, type MailResult } from "./mail.js";
 import { withWorkspaceLock } from "./lock.js";
 import type { AppState, Invite } from "./demo/types.js";
 import type { PlanId } from "./demo/subscription.js";
-import { clampSeats, MIN_SEATS } from "./demo/subscription.js";
+import { billingChange, clampSeats, defaultRenewal, MIN_SEATS } from "./demo/subscription.js";
 
 const app = new Hono();
 
@@ -490,26 +490,6 @@ app.put("/api/workspace", async (c) => {
         return c.json({ error: "The workspace didn't load, so this empty copy wasn't saved." }, 409);
       }
 
-      if (viewer.role === "admin") {
-        const wanted = Math.round(Number(incoming.workspace?.seats));
-        if (wanted && wanted !== workspace.seats) {
-          const preview = mergeState(stored, incoming, viewer, { ...billing, seats: wanted });
-          const problem = seatProblem(preview, wanted, billing.plan);
-          if (problem) return c.json({ error: problem }, 400);
-          try {
-            if (workspace.stripeSubscriptionId) {
-              workspace = await updateSubscription(workspace, billing.plan, wanted);
-            } else {
-              workspace = await pb().collection("workspaces").update<PbWorkspace>(workspace.id, { seats: wanted });
-            }
-            billing = billingOf(workspace);
-          } catch (error) {
-            const message = error instanceof Error ? error.message : "Stripe couldn't update the seats.";
-            return c.json({ error: message }, 402);
-          }
-        }
-      }
-
       const merged = stripFiles(mergeState(stored, incoming, viewer, billing), stored);
       if (!(merged.users ?? []).some((user) => user.role === "Admin")) {
         return c.json({ error: "The workspace needs at least one admin." }, 400);
@@ -689,10 +669,13 @@ app.post("/api/billing/update", async (c) => {
   if (!session?.member || !session.workspace) return c.json({ error: "You're signed out." }, 401);
   if (session.member.role !== "admin") return c.json({ error: "Only an admin can change the subscription." }, 403);
   const body = (await c.req.json().catch(() => null)) as { plan?: PlanId; seats?: number } | null;
-  const plan = body?.plan === "pro" || body?.plan === "premium" ? body.plan : session.workspace.plan;
-  if (body?.plan === "enterprise") {
+  if (body?.plan === "enterprise" && session.workspace.plan !== "enterprise") {
     return c.json({ error: "Enterprise is set up with our team. Email contact@sysfora.com." }, 400);
   }
+  const plan =
+    body?.plan === "pro" || body?.plan === "premium" || body?.plan === "enterprise"
+      ? body.plan
+      : session.workspace.plan;
   const seats = clampSeats(Number(body?.seats) || session.workspace.seats, plan);
   const problem = seatProblem(
     session.workspace.cache ||
@@ -701,7 +684,27 @@ app.post("/api/billing/update", async (c) => {
     plan,
   );
   if (problem) return c.json({ error: problem }, 400);
+  if (plan === session.workspace.plan && seats === session.workspace.seats) {
+    return c.json({
+      plan: session.workspace.plan,
+      seats: session.workspace.seats,
+      renewsAt: session.workspace.renewsAt || null,
+      name: session.workspace.name,
+    });
+  }
   try {
+    const origin = env.requestOrigin((name) => c.req.header(name), c.req.url);
+    const due = billingChange(
+      { plan: session.workspace.plan, seats: session.workspace.seats },
+      { plan, seats },
+      session.workspace.renewsAt || defaultRenewal(),
+    ).dueToday;
+    if (due > 0) {
+      const url = session.workspace.stripeSubscriptionId
+        ? await createChangeCheckout(session.workspace, session.user.email, plan, seats, origin)
+        : await createCheckout(session.workspace, session.user.email, plan, seats, origin);
+      if (url) return c.json({ url });
+    }
     const workspace = await updateSubscription(session.workspace, plan, seats);
     return c.json({
       plan: workspace.plan,
@@ -723,6 +726,16 @@ app.post("/api/billing/confirm", async (c) => {
   if (!body?.sessionId) return c.json({ error: "Missing checkout session." }, 400);
   const checkout = await stripe.checkout.sessions.retrieve(body.sessionId);
   if (checkout.metadata?.workspaceId !== session.workspace.id) return c.json({ error: "That checkout belongs to another workspace." }, 403);
+  if (checkout.metadata?.kind === "change") {
+    if (checkout.payment_status !== "paid") return c.json({ error: "Stripe hasn't collected that payment yet." }, 409);
+    const plan = checkout.metadata.plan === "pro" || checkout.metadata.plan === "enterprise" ? checkout.metadata.plan : "premium";
+    const fromPlan = checkout.metadata.fromPlan === "pro" || checkout.metadata.fromPlan === "enterprise" ? checkout.metadata.fromPlan : "premium";
+    const seats = Number(checkout.metadata.seats);
+    const fromSeats = Number(checkout.metadata.fromSeats);
+    if (!Number.isFinite(seats) || !Number.isFinite(fromSeats)) return c.json({ error: "That checkout is missing the new seats." }, 400);
+    await applyPaidChange(session.workspace.id, plan, seats, fromPlan, fromSeats);
+    return c.json({ ok: true, kind: "change" });
+  }
   const subscriptionId = typeof checkout.subscription === "string" ? checkout.subscription : checkout.subscription?.id;
   if (!subscriptionId) return c.json({ error: "Stripe hasn't created the subscription yet." }, 409);
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -753,6 +766,15 @@ app.post("/api/stripe/webhook", async (c) => {
     ) {
       if (event.type === "checkout.session.completed") {
         const checkout = event.data.object;
+        if (checkout.metadata?.kind === "change" && checkout.payment_status === "paid" && checkout.metadata.workspaceId) {
+          const plan = checkout.metadata.plan === "pro" || checkout.metadata.plan === "enterprise" ? checkout.metadata.plan : "premium";
+          const fromPlan = checkout.metadata.fromPlan === "pro" || checkout.metadata.fromPlan === "enterprise" ? checkout.metadata.fromPlan : "premium";
+          const seats = Number(checkout.metadata.seats);
+          const fromSeats = Number(checkout.metadata.fromSeats);
+          if (Number.isFinite(seats) && Number.isFinite(fromSeats)) {
+            await applyPaidChange(checkout.metadata.workspaceId, plan, seats, fromPlan, fromSeats);
+          }
+        }
         const subscriptionId =
           typeof checkout.subscription === "string" ? checkout.subscription : checkout.subscription?.id;
         if (subscriptionId) {
