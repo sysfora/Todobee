@@ -65,8 +65,6 @@
 
 <br />
 
-## 🔌 See the leading Todobee features
-
 <p align="center">
   <a href="https://demo.todobee.com" target="_blank">
     <img alt="Todobee Project Board" src="./public/brand/board.webp" width="920" />
