@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { Check, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +83,42 @@ export function PlanCards({
   );
 }
 
+/**
+ * Stepper control that stays inactive without the disabled attribute.
+ * Safari selects the text in the neighboring number field when a disabled button is clicked.
+ */
+function SeatStep({
+  label,
+  blocked,
+  onStep,
+  children,
+}: {
+  label: string;
+  blocked: boolean;
+  onStep: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="icon"
+      aria-label={label}
+      aria-disabled={blocked}
+      tabIndex={blocked ? -1 : undefined}
+      className={blocked ? "cursor-not-allowed opacity-50 hover:bg-transparent" : undefined}
+      onMouseDown={(event) => {
+        if (blocked) event.preventDefault();
+      }}
+      onClick={() => {
+        if (!blocked) onStep();
+      }}
+    >
+      {children}
+    </Button>
+  );
+}
+
 /** Seat count with +/- buttons, a number field and (when the plan has a limit) a slider. */
 export function SeatPicker({
   seats,
@@ -97,15 +133,13 @@ export function SeatPicker({
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
       <div className="flex items-center gap-3">
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Remove a seat"
-          onClick={() => onChange(clampSeats(seats - 1, plan))}
-          disabled={seats <= MIN_SEATS}
+        <SeatStep
+          label="Remove a seat"
+          blocked={seats <= MIN_SEATS}
+          onStep={() => onChange(clampSeats(seats - 1, plan))}
         >
           <Minus className="h-4 w-4" />
-        </Button>
+        </SeatStep>
         <Input
           aria-label="Seats"
           type="number"
@@ -116,15 +150,13 @@ export function SeatPicker({
           onBlur={() => onChange(clampSeats(seats, plan))}
           className="w-20 text-center text-lg font-semibold"
         />
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Add a seat"
-          onClick={() => onChange(clampSeats(seats + 1, plan))}
-          disabled={maxSeats !== null && seats >= maxSeats}
+        <SeatStep
+          label="Add a seat"
+          blocked={maxSeats !== null && seats >= maxSeats}
+          onStep={() => onChange(clampSeats(seats + 1, plan))}
         >
           <Plus className="h-4 w-4" />
-        </Button>
+        </SeatStep>
       </div>
       {/* Enterprise has no upper limit, so it only gets the number field */}
       {maxSeats !== null && (
