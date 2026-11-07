@@ -71,25 +71,38 @@
   </a>
 </p>
 
+<h2>✨ Features</h2>
+
 <table>
   <tr>
     <td width="50%" valign="top">
-      <h3>Clear Kanban Boards</h3>
-      <p><strong>Drag-and-drop cards between sections.</strong> Group any board by person, label, priority, or due date, and filter down to the exact work that matters right now.</p>
+      <strong>Clear Kanban Boards</strong>
+      <br><br>
+      <strong>Drag-and-drop cards between sections.</strong>
+      Group any board by person, label, priority, or due date,
+      and filter down to the exact work that matters right now.
     </td>
     <td width="50%" valign="top">
-      <h3>All Tasks in One Place</h3>
-      <p><strong>Checklists, notes, files, priorities, and colored labels.</strong> Keep discussions, context, and attachments right on the task card.</p>
+      <strong>All Tasks in One Place</strong>
+      <br><br>
+      <strong>Checklists, notes, files, priorities, and colored labels.</strong>
+      Keep discussions, context, and attachments right on the task card.
     </td>
   </tr>
   <tr>
-    <td valign="top">
-      <h3>Google Drive</h3>
-      <p><strong>Your workspace data belongs to you.</strong> Projects, tasks, notes, and files sync directly to a dedicated <code>Todobee</code> folder in the workspace admin's Google Drive.</p>
+    <td width="50%" valign="top">
+      <strong>Google Drive/strong>
+      <br><br>
+      <strong>Your workspace data belongs to you.</strong>
+      Projects, tasks, notes, and files sync directly to a dedicated
+      <code>Todobee</code> folder in the workspace admin's Google Drive.
     </td>
-    <td valign="top">
-      <h3>Focused Team</h3>
-      <p><strong>Role-based visibility.</strong> Admins oversee the whole workspace; members see only assigned projects. Send invites by email and accept with Google.</p>
+    <td width="50%" valign="top">
+      <strong>Focused Team</strong>
+      <br><br>
+      <strong>Role-based visibility.</strong>
+      Admins oversee the whole workspace; members see only assigned
+      projects. Send invites by email and accept with Google.
     </td>
   </tr>
 </table>
