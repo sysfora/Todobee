@@ -2,11 +2,19 @@
 
 import type { ReactNode } from "react";
 import { Loader2 } from "lucide-react";
-import { useGoogleSignIn } from "@/hooks/use-google-sign-in";
+import { useGoogleSignIn, useSignedIn } from "@/hooks/use-google-sign-in";
 
-/** Any "Get started" / "Sign in" on the homepage: opens Google sign-in directly. */
+/** Any "Get started" / "Sign in" on the homepage: opens Google sign-in, or the app when already signed in. */
 export function SignInButton({ className, children }: { className?: string; children: ReactNode }) {
   const { signIn, busy } = useGoogleSignIn();
+  const signedIn = useSignedIn();
+  if (signedIn) {
+    return (
+      <a href="/dashboard" className={className}>
+        Dashboard
+      </a>
+    );
+  }
   return (
     <button
       type="button"

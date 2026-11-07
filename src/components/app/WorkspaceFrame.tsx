@@ -19,7 +19,7 @@ export function WorkspaceFrame({
   adminOnly?: boolean;
 }) {
   const router = useRouter();
-  const { signIn, busy } = useGoogleSignIn();
+  const { signIn, busy } = useGoogleSignIn({ consent: true });
   const hydrated = useStoreHydrated();
   const query = useQuery({ ...accountQuery, enabled: !isDemo, retry: false });
 

@@ -8,15 +8,16 @@ export function googleRedirectUri(origin = env.appUrl()) {
   return `${origin.replace(/\/+$/, "")}/api/auth/google/callback`;
 }
 
-export function googleAuthUrl(state: string, origin = env.appUrl()) {
+export function googleAuthUrl(state: string, origin = env.appUrl(), consent = false) {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", env.googleClientId());
   url.searchParams.set("redirect_uri", googleRedirectUri(origin));
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", GOOGLE_SCOPES.join(" "));
   url.searchParams.set("access_type", "offline");
-  url.searchParams.set("prompt", "consent");
   url.searchParams.set("include_granted_scopes", "true");
+  // Consent only when we still need a Drive refresh token. Granted users skip the permission screens.
+  if (consent) url.searchParams.set("prompt", "consent");
   url.searchParams.set("state", state);
   return url.toString();
 }

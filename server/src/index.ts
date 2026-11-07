@@ -124,8 +124,9 @@ app.get("/api/auth/google", (c) => {
     return c.json({ error: "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET." }, 500);
   }
   const origin = env.requestOrigin((name) => c.req.header(name), c.req.url);
-  const state = sealJson({ next: safeNext(c.req.query("next")), origin }, 600);
-  const authUrl = googleAuthUrl(state, origin);
+  const consent = c.req.query("consent") === "1";
+  const state = sealJson({ next: safeNext(c.req.query("next")), origin, consentTried: consent }, 600);
+  const authUrl = googleAuthUrl(state, origin, consent);
   console.log(`[Google OAuth] Redirecting to Google auth with redirect_uri: ${origin}/api/auth/google/callback`);
   return c.redirect(authUrl);
 });
@@ -140,7 +141,7 @@ app.get("/api/auth/google/callback", async (c) => {
   }
   const code = c.req.query("code") || "";
   const rawState = c.req.query("state");
-  const state = openJson<{ next: string; origin?: string }>(rawState);
+  const state = openJson<{ next: string; origin?: string; consentTried?: boolean }>(rawState);
   const origin = state?.origin || fallbackOrigin;
   if (!code || !state) {
     console.error("[Google OAuth Error] Missing authorization code or invalid state token", {
@@ -157,6 +158,11 @@ app.get("/api/auth/google/callback", async (c) => {
     const profile = await googleProfile(tokens.access_token!);
     console.log(`[Google OAuth] User authenticated: ${profile.email}`);
     let user = (await findUserBy("googleSub", profile.sub)) || (await findUserBy("email", profile.email));
+    if (!tokens.refresh_token && !user?.refreshToken && !state.consentTried) {
+      const retry = sealJson({ next: state.next, origin, consentTried: true }, 600);
+      console.log("[Google OAuth] Drive access is not stored yet. Asking for permission once.");
+      return c.redirect(googleAuthUrl(retry, origin, true));
+    }
     const refresh = tokens.refresh_token ? encrypt(tokens.refresh_token) : user?.refreshToken || "";
     if (!user) {
       const password = randomBytes(18).toString("base64url");
