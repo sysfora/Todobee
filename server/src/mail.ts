@@ -22,7 +22,73 @@ function expiryLabel(iso: string) {
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
-export type MailResult = { kind: "invite" | "assignment"; to: string; ok: boolean; error?: string };
+export type MailResult = { kind: "invite" | "assignment" | "support"; to: string; ok: boolean; error?: string };
+
+export async function sendSupportEmail(input: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}): Promise<MailResult> {
+  const to = "sysforagroup@gmail.com";
+  if (!smtpConfigured()) {
+    return { kind: "support", to, ok: false, error: "SMTP is not configured on this server." };
+  }
+  const senderName = input.name.trim();
+  const senderEmail = input.email.trim();
+  const subjectLine = `[Todobee Support] ${input.subject.trim() || "New Support Request"} - ${senderName}`;
+  const text = [
+    `New support ticket submitted via Todobee website:`,
+    "",
+    `From: ${senderName} (${senderEmail})`,
+    `Subject: ${input.subject.trim()}`,
+    "",
+    `Message:`,
+    input.message.trim(),
+    "",
+    `---`,
+    `Sent from Todobee Support Form`,
+  ].join("\n");
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #eaeaea; border-radius: 12px; background: #ffffff;">
+      <div style="border-bottom: 2px solid #f5b400; padding-bottom: 16px; margin-bottom: 20px;">
+        <h2 style="color: #111; margin: 0; font-size: 20px;">New Support Request</h2>
+        <p style="color: #666; margin: 4px 0 0; font-size: 14px;">Submitted via Todobee Website</p>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-size: 14px; width: 80px;"><strong>From:</strong></td>
+          <td style="padding: 8px 0; color: #111; font-size: 14px;">${escapeHtml(senderName)} &lt;<a href="mailto:${escapeHtml(senderEmail)}" style="color: #1a73e8; text-decoration: none;">${escapeHtml(senderEmail)}</a>&gt;</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #666; font-size: 14px; width: 80px;"><strong>Subject:</strong></td>
+          <td style="padding: 8px 0; color: #111; font-size: 14px;">${escapeHtml(input.subject.trim())}</td>
+        </tr>
+      </table>
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+        <h3 style="margin: 0 0 10px; font-size: 14px; color: #475569; text-transform: uppercase; letter-spacing: 0.05em;">Message</h3>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #1e293b; white-space: pre-wrap;">${escapeHtml(input.message.trim())}</p>
+      </div>
+      <p style="font-size: 12px; color: #94a3b8; margin: 0; text-align: center;">You can reply directly to this email to contact the user.</p>
+    </div>
+  `;
+
+  try {
+    await transport().sendMail({
+      from: env.smtpFrom(),
+      to,
+      replyTo: senderEmail,
+      subject: subjectLine,
+      text,
+      html,
+    });
+    return { kind: "support", to, ok: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The mail server rejected the message.";
+    return { kind: "support", to, ok: false, error: message };
+  }
+}
 
 export async function sendInviteEmail(input: {
   invite: Invite;

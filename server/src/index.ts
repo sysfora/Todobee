@@ -20,7 +20,7 @@ import { downloadFile, ensureFolder, uploadFile } from "./drive.js";
 import { startDriveSync, stopDriveSync, syncPendingWorkspaces } from "./drive-sync.js";
 import { applyStripeSubscription, createCheckout, getStripe, updateSubscription } from "./billing.js";
 import { claimIdentity, canReadFile, fileIds, initialWorkspaceState, mergeState, present, seatProblem, type Viewer } from "./state.js";
-import { sendAssignmentEmail, sendInviteEmail, type MailResult } from "./mail.js";
+import { sendAssignmentEmail, sendInviteEmail, sendSupportEmail, type MailResult } from "./mail.js";
 import { withWorkspaceLock } from "./lock.js";
 import type { AppState, Invite } from "./demo/types.js";
 import type { PlanId } from "./demo/subscription.js";
@@ -117,6 +117,45 @@ app.get("/api/health", async (c) => {
     pocketbase = false;
   }
   return c.json({ ok: true, pocketbase });
+});
+
+app.post("/api/support", async (c) => {
+  try {
+    const body = await c.req.json<{
+      name?: unknown;
+      email?: unknown;
+      subject?: unknown;
+      message?: unknown;
+    }>();
+
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const email = typeof body?.email === "string" ? body.email.trim() : "";
+    const subject = typeof body?.subject === "string" ? body.subject.trim() : "";
+    const message = typeof body?.message === "string" ? body.message.trim() : "";
+
+    if (!name) {
+      return c.json({ ok: false, error: "Please enter your name." }, 400);
+    }
+    if (!email || !email.includes("@") || !email.includes(".")) {
+      return c.json({ ok: false, error: "Please provide a valid email address." }, 400);
+    }
+    if (!subject) {
+      return c.json({ ok: false, error: "Please enter a subject." }, 400);
+    }
+    if (!message || message.length < 5) {
+      return c.json({ ok: false, error: "Please enter a message (at least 5 characters)." }, 400);
+    }
+
+    const result = await sendSupportEmail({ name, email, subject, message });
+    if (!result.ok) {
+      return c.json({ ok: false, error: result.error || "Failed to send email." }, 500);
+    }
+
+    return c.json({ ok: true, message: "Support request sent successfully." });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Invalid request.";
+    return c.json({ ok: false, error: msg }, 400);
+  }
 });
 
 app.get("/api/auth/google", (c) => {

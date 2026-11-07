@@ -82,8 +82,9 @@ export function LandingFooter() {
               <FooterLink href="/accessibility">Accessibility</FooterLink>
             </FooterColumn>
             <FooterColumn title="Support">
+              <FooterLink href="/support">Support Center</FooterLink>
               <FooterLink href={`mailto:${HELP_EMAIL}?subject=Support%20Ticket`}>
-                Contact Support
+                Email Support
               </FooterLink>
             </FooterColumn>
           </div>
