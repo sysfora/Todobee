@@ -1,0 +1,72 @@
+# Contributing
+
+Contributions are welcome - code, docs, whatever it might be! If this is your first contribution to an Open Source project or you're a core maintainer of multiple projects, your time and interest in contributing to this project is most welcome.
+
+## Read the developers guide
+
+The main repository README has a [developer guide](README.md#getting-started). That guide provides you a good understanding of the project structure, prerequisites (Node.js, PocketBase, Google Cloud credentials, Stripe), and how to set up your local development environment. Read this document after you have read that guide. This document is intended to provide you a good understanding of how to submit your first contribution.
+
+## Apply via the contribution form
+
+To submit your contribution or propose major changes, please open a [GitHub Issue or Discussion](https://github.com/Sysfora/todobee/issues). This helps us evaluate whether your contribution is a good fit for the project roadmap. We will review your submission and get back to you as soon as possible.
+
+## Sign the Contributor License Agreement (CLA)
+
+Before we can merge your contribution, you must agree to our Contributor License Agreement (CLA). This documents the rights you grant us and helps ensure that Todobee can always remain Free and Open Source Software under the AGPL-3.0 license.
+
+- Contributing as an individual? The [Individual Contributor License Agreement (ICLA)](./ICLA.md) applies.
+- Contributing on behalf of a company or other legal entity? The [Entity Contributor License Agreement (CCLA)](./CCLA.md) applies.
+
+You accept the agreement when submitting your pull request. You only need to do this once, and it covers your present and future contributions to Todobee.
+
+## Write code with others
+
+This is an open source project, with an open and welcoming community that is always keen to welcome new contributors. We recommend the two best ways to interact with the community are:
+
+- **GitHub issues**: To discuss more slowly, or longer-written messages.
+- **[GitHub Discussions](https://github.com/Sysfora/todobee/discussions)**: To chat with maintainers and the community for quicker feedback.
+
+As a general rule:
+
+- **If a change is less than 3 lines**: You're probably safe just to submit the change without a discussion. This includes typos, dependency changes, and quick fixes, etc.
+- **If a change is more than 3 lines**: It's probably best to discuss the change in an issue first. This is simply because you might not be aware of the roadmap for the project, or understand the impact this change might have. We're just trying to save you time here, and importantly, avoid you being disappointed if your change isn't accepted.
+
+## Types of Contributions
+
+Contributions can include:
+
+- **Code improvements:** Fixing bugs or adding new features.
+- **Documentation updates:** Enhancing clarity or adding missing information.
+- **Feature requests:** Suggesting new capabilities or integrations.
+- **Bug reports:** Identifying and reporting issues.
+
+## AI
+
+To ensure the quality and maintainability of the codebase, **we do not accept Pull Requests generated primarily by AI tools** (e.g., ChatGPT, GitHub Copilot, Claude Code, etc.). 
+All contributions must be the original work of the author. We reserve the right to close any PR that appears to be AI-generated without further review.
+
+## How to contribute
+
+This project follows a Fork/Feature Branch/Pull Request model. If you're not familiar with this, here's how it works:
+
+1. **Fork the project:** Create a personal copy of the repository on your GitHub account.
+2. **Clone your fork:** Bring a copy of your fork to your local machine.
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/todobee.git
+   ```
+3. **Create a new branch**: Start a new branch for your changes
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+4. **Make your changes**: Implement the changes you wish to contribute.
+5. **Push your changes**: Upload your changes to your fork.
+   ```bash
+   git push -u origin feature/your-feature-name
+   ```
+6. **Create a pull request**: Propose your changes **to the main branch**.
+
+# Need Help?
+
+Again, do check the [developer guide](README.md#getting-started). Much of what you probably need to know is in there.
+
+If you encounter any issues, please visit our [issues page](https://github.com/Sysfora/todobee/issues) or reach out to the maintainers at sysforagroup@gmail.com. Your contributions help make Todobee better!

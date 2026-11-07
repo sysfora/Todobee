@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LandingPage } from "@/views/landing";
+import { StructuredData } from "@/components/seo/StructuredData";
 
 export const metadata: Metadata = {
   title: {
@@ -10,5 +11,10 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <LandingPage />;
+  return (
+    <>
+      <StructuredData />
+      <LandingPage />
+    </>
+  );
 }

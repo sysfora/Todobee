@@ -1,122 +1,211 @@
 <p align="center">
-  <img src="./public/brand/bee-light.png" width="168" alt="Todobee bee" />
-</p>
-
-<h1 align="center">Todobee</h1>
-
-<p align="center">
-  The open-source project management app for teams on Google Workspace.<br />
-</p>
-
-<p align="center">
-  <a href="https://github.com/Sysfora/Todobee.git"><img src="https://img.shields.io/badge/source-GitHub-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub" /></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square" alt="AGPL-3.0" /></a>
-  <a href="https://demo.todobee.com"><img src="https://img.shields.io/badge/live%20demo-demo.todobee.com-F5B400?style=flat-square" alt="Live demo" /></a>
+  <a href="https://todobee.com" target="_blank">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./public/brand/bee-dark.png">
+    <img alt="Todobee Logo" src="./public/brand/bee-light.png" width="220"/>
+  </picture>
+  </a>
 </p>
 
 <p align="center">
-  <a href="https://demo.todobee.com"><strong>Try the live demo</strong></a>
-  &nbsp;·&nbsp;
-  <a href="https://github.com/Sysfora/Todobee.git"><strong>View the source</strong></a>
-  &nbsp;·&nbsp;
-  <a href="#getting-started"><strong>Self-host</strong></a>
+<a href="https://opensource.org/license/agpl-v3">
+  <img src="https://img.shields.io/badge/License-AGPL%203.0-blue.svg" alt="License">
+</a>
+<a href="https://demo.todobee.com">
+  <img src="https://img.shields.io/badge/live%20demo-demo.todobee.com-F5B400?style=flat" alt="Live Demo">
+</a>
+</p>
+
+<div align="center">
+  <strong>
+    <a href="https://todobee.com">Todobee</a> is an open-source project management platform built for teams on Google Workspace.
+    
+  Use Todobee Cloud for a fully managed experience, or deploy the open-source edition on your own infrastructure.
+  </strong>
+</div>
+
+<p align="center">
+  <br />
+  <a href="https://demo.todobee.com" rel="dofollow"><strong>Try the Live Demo »</strong></a>
+  <br />
+
+  <br />
+  <a href="https://github.com/Sysfora/todobee" rel="dofollow"><strong>Explore GitHub Repository »</strong></a>
+  <br />
 </p>
 
 <p align="center">
-  <img src="./public/brand/board.webp" width="920" alt="A Todobee project board with sections and task cards" />
+  <a href="https://demo.todobee.com">Try Demo</a>
+  ·
+  <a href="https://todobee.com">Register</a>
+  ·
+  <a href="https://github.com/Sysfora/todobee/issues">Report an Issue</a><br />
+</p>
+<p align="center">
+  <a href="#getting-started">Self-host Guide</a>
+  ·
+  <a href="#tech-stack">Tech Stack</a>
+  ·
+  <a href="#todobee-cloud-vs-open-source">Cloud vs Open-source</a>
 </p>
 
 <br />
 
-## What it is
+<p align="center"><strong>Built for Google Workspace & Modern Cloud Workflows:</strong></p>
+<div class="flex" align="center">
+  <img alt="Google Drive" src="https://img.shields.io/badge/Google%20Drive-4285F4?style=for-the-badge&logo=googledrive&logoColor=white" height="28">
+  <img alt="Google Workspace" src="https://img.shields.io/badge/Google%20Workspace-EA4335?style=for-the-badge&logo=google&logoColor=white" height="28">
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" height="28">
+  <img alt="PocketBase" src="https://img.shields.io/badge/PocketBase-B8DBE4?style=for-the-badge&logo=pocketbase&logoColor=black" height="28">
+  <img alt="Stripe" src="https://img.shields.io/badge/Stripe-635BFF?style=for-the-badge&logo=stripe&logoColor=white" height="28">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" height="28">
+</div>
 
-Todobee is a board for the work a team actually does: projects, sections, tasks, checklists, notes, and files. Sign-in is Google. The workspace content lives in the admin’s Google Drive. Todobee keeps accounts, roles, invites, and a short-lived cache so the board stays fast without reading Drive on every click.
+<p align="center"><strong>Designed for high-productivity teams:</strong></p>
+<div class="flex" align="center">
+  <img alt="Kanban Boards" src="https://img.shields.io/badge/Kanban-Boards-F5B400?style=flat-square" height="24">
+  <img alt="Drag & Drop" src="https://img.shields.io/badge/Drag%20%26%20Drop-Workflows-blue?style=flat-square" height="24">
+  <img alt="Task Checklists" src="https://img.shields.io/badge/Checklists-Interactive-green?style=flat-square" height="24">
+  <img alt="Attachments" src="https://img.shields.io/badge/Drive-Attachments-red?style=flat-square" height="24">
+  <img alt="Role Based" src="https://img.shields.io/badge/RBAC-Multi--Admin-purple?style=flat-square" height="24">
+</div>
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>Clear boards</h3>
-      Drag tasks between sections. Group a board by person, label, priority, or due date, and filter down to the work that matters right now.
-    </td>
-    <td width="50%" valign="top">
-      <h3>All tasks in one place</h3>
-      Checklists, notes, files, priorities, due dates, assignees, and colored labels sit on the card. The conversation stays next to the work.
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>Your Google Drive</h3>
-      Projects, tasks, notes, and files are saved to a Todobee folder in the workspace admin’s Drive. You can take the workspace with you.
-    </td>
-    <td width="50%" valign="top">
-      <h3>Focused team</h3>
-      Admins see the whole workspace. Everyone else sees only the projects they belong to. Invites go out by email and are accepted with Google.
-    </td>
-  </tr>
-</table>
+<br />
 
-## Plans
+## 🔌 See the leading Todobee features
 
-Priced per seat, billed once a year. Every plan starts at 10 seats. Premium and Pro stop at 150. Enterprise does not.
+<p align="center">
+  <a href="https://demo.todobee.com" target="_blank">
+    <img alt="Todobee Project Board" src="./public/brand/board.webp" width="920" />
+  </a>
+</p>
 
-| | Premium | Pro | Enterprise |
-| --- | --- | --- | --- |
-| Per seat / month | $7.99 | $14.99 | $79.99 |
-| Projects, boards, tasks | Unlimited | Unlimited | Unlimited |
-| Notes, files, labels | Yes | Yes | Yes |
-| Email notifications | | Yes | Yes |
-| Dark mode | | Yes | Yes |
-| Multiple admins | | | Yes |
+## ✨ Features
 
-## Getting started
+| Clear Kanban Boards | All Tasks in One Place |
+| ------------------- | ---------------------- |
+| **Drag-and-drop cards between sections.** Group any board by person, label, priority, or due date, and filter down to the exact work that matters right now. | **Checklists, notes, files, priorities, and colored labels.** Keep discussions, context, and attachments right on the task card. |
+| **Google Drive Persistence** | **Focused Team Collaboration** |
+| **Your workspace data belongs to you.** Projects, tasks, notes, and files sync directly to a dedicated `Todobee` folder in the workspace admin's Google Drive. | **Role-based visibility.** Admins oversee the whole workspace; members see only assigned projects. Send invites by email and accept with Google. |
 
-You need Node.js, a PocketBase instance you already host, a Google OAuth client, and a Stripe account if you want paid plans.
+# Intro
 
+- **Project Management on Google Workspace:** Native Google authentication and direct sync to the administrator's Google Drive.
+- **Interactive Kanban Boards:** Fluid drag-and-drop organization across customizable columns and sections.
+- **Rich Task Details:** Subtask checklists, markdown notes, file attachments, due dates, priority tiers, and color-coded labels.
+- **Fast Local Caching:** Backed by PocketBase for sub-millisecond responses without hitting Drive rate limits on every interaction.
+- **Email Notifications & Invites:** Seamless team onboarding via SMTP invitations and instant Google sign-in.
+- **Flexible Subscription Model:** Built-in Stripe billing with per-seat licensing across Premium, Pro, and Enterprise tiers.
+
+## Tech Stack
+
+- **Next.js 16 (React 19)** - High-performance React application framework
+- **Hono** - Fast and lightweight API server and gateway
+- **PocketBase** - Real-time accounts, RBAC, invites, subscription state, and Drive cache
+- **Google Drive API** - Secure persistence of project assets and attachments
+- **Stripe** - Seat-based subscription checkout, billing portal, and webhooks
+- **Tailwind CSS 4 & Radix UI** - Modern accessible styling and component primitives
+- **Docker & Docker Compose** - Containerized deployment for app and demo environments
+
+## Quick Start
+
+To have the project up and running locally, please follow the steps below:
+
+### 1. Prerequisites
+- **Node.js 20+** and npm
+- A hosted **PocketBase** instance (e.g. PocketHost, Fly.io, or self-hosted)
+- A **Google Cloud** project with OAuth 2.0 Credentials and Google Drive API enabled
+- *(Optional)* A **Stripe** account for recurring seat-based billing
+
+### 2. Setup & Installation
 ```bash
+# Clone the repository
+git clone https://github.com/Sysfora/todobee.git
+cd todobee
+
+# Install dependencies for client and server
 npm install
+
+# Copy environment configuration
 cp .env.example .env
-npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The API listens on port 4000 during local development.
+### 3. Configure `.env`
+Fill in your credentials in `.env` (refer to `.env.example` for details):
+- `APP_URL=http://localhost:3000`
+- `APP_SECRET=<your-random-32-char-string>`
+- `PB_URL`, `PB_ADMIN_EMAIL`, `PB_ADMIN_PASSWORD`
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+- *(Optional)* Stripe and SMTP credentials
 
-`.env.example` is the setup guide. It lists the Google scopes, the OAuth redirect URI, the Stripe webhook events, the yearly price amounts, SMTP, and the Drive sync interval. Fill that file in before you sign in.
+### 4. Run Development Servers
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser. The API gateway listens on port 4000.
 
-| | |
-| --- | --- |
-| App | [http://localhost:3000](http://localhost:3000) |
-| Local demo, no login | `npm run demo` → [http://localhost:5000](http://localhost:5000) |
-| Hosted demo | [https://demo.todobee.com](https://demo.todobee.com) |
+### 5. Local Demo Mode (No Login / No Database Required)
+```bash
+npm run demo
+```
+Open [http://localhost:5000](http://localhost:5000) to explore the full interface with sample mock data.
 
-The demo uses the same interface with sample data in the browser. It does not send email or charge a card.
-
-## Docker
-
-One image runs the app and the demo.
-
+### 6. Docker Deployment
 ```bash
 docker compose up -d --build
 ```
-
 | Port | What it serves |
-| --- | --- |
-| `3000` | Todobee. Point your domain here. |
-| `5000` | The demo. Point `demo.todobee.com` here. |
+|---|---|
+| `3000` | Todobee production app (point your domain here) |
+| `5000` | Todobee demo interface (e.g., `demo.todobee.com`) |
 
-Set `APP_URL` to the public `https` origin. PocketBase is not started by this container. It uses the `PB_URL` in `.env`.
+## Sponsor Todobee
 
-## Layout
+We offer options to support the ongoing open-source development of Todobee:
+- **Donations:** Help us maintain the codebase and add features faster.
+- **Corporate Sponsorship:** Get your company logo and backlink featured in the repository and documentation.
 
-| Path | |
-| --- | --- |
-| `src/` | Next.js app: landing page, boards, settings |
-| `server/` | API: Google sign-in, Drive sync, Stripe, invites |
-| `demo/` | Same interface, sample data, no accounts |
-| `public/brand/` | Bee, wordmark, and board image |
-| `.env.example` | Every variable, with the permissions and events to configure |
+Contact us at [sysforagroup@gmail.com](mailto:sysforagroup@gmail.com) for sponsorship inquiries.
 
-##
-<p align="center">
-  Copyright © 2026 Sysfora Technologies Private Limited<br />
-  Licensed under the <a href="./LICENSE">GNU Affero General Public License v3.0</a>.
-</p>
+<br />
+<br />
+
+## Todobee Cloud vs. Open-source
+
+Choose [Todobee Cloud](https://todobee.com/) for a fully managed experience, or deploy Todobee Open-source on your own infrastructure. Both provide the exact same core product and features.
+
+We do not gate essential features or artificially restrict the open-source license.
+
+| Area | Todobee Cloud | Todobee Open-source (self-hosted) |
+|---|---|---|
+| **Cost** | Subscription per seat, 14-day free trial | Free forever (AGPL-3.0); you pay only for your infrastructure |
+| **Setup time** | Sign up and create your workspace in minutes | Deploy via Docker / VPS; configure PocketBase, Google OAuth, and env vars |
+| **Hosting & data** | Fully managed cloud; workspace data saved to your Google Drive | Runs on your server; data stays entirely within your environment and Google Drive |
+| **Google Cloud Setup** | Pre-approved, verified Google OAuth app ready to use | You create your own Google Cloud OAuth Client and enable Google Drive API |
+| **Projects & Boards** | Unlimited | Unlimited |
+| **Tasks, Checklists & Labels** | Unlimited | Unlimited |
+| **Google Drive Sync** | Automated background sync and cache management | Automated background sync (configurable `DRIVE_SYNC_INTERVAL_MS`) |
+| **Team members & Seats** | Per subscribed plan seats | Unlimited seats |
+| **Email Notifications** | Managed out of the box | Requires your own SMTP credentials |
+| **Dark Mode** | Included | Included |
+| **Multiple Admins** | Available on Enterprise | Supported in codebase |
+| **Billing & Stripe** | Handled automatically | Optional; configure your own Stripe keys and webhooks if needed |
+| **Updates & maintenance** | Automatic, zero downtime | You pull new releases and manage updates yourself |
+| **Backups & Security** | Managed infrastructure | Your responsibility |
+| **Support** | Priority support via email | Community support on GitHub Issues and Discussions |
+| **Source access & customization** | SaaS platform | Full source code, fork and modify freely under AGPL-3.0 |
+
+<br />
+<br />
+
+## Todobee Compliance
+
+- This GitHub repository contains the open-source, self-hosted edition of Todobee. Todobee is also available as a managed service at todobee.com.
+- Todobee uses official Google OAuth 2.0 authentication flows.
+- Todobee requests the restricted `drive.file` scope, meaning it can only create and access files that it creates within the dedicated `Todobee` folder. It never scans, reads, or accesses the rest of your Google Drive.
+- Todobee does not sell or share user data with third parties.
+- Workspace data remains under your organization's control in your administrator's Google Drive.
+
+## License
+
+This repository's source code is available under the [AGPL-3.0 license](LICENSE).

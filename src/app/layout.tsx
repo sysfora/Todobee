@@ -6,8 +6,13 @@ import "./globals.css";
 const title = "Todobee - The #1 Project Management Software For Google Workspace";
 const description =
   "Plan projects on clear boards, track tasks with checklists, notes and files, and keep your team's work in your own Google Drive.";
+const siteUrl =
+  process.env.APP_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "https://todobee.com";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: { default: title, template: "%s · Todobee" },
   description,
   applicationName: "Todobee",

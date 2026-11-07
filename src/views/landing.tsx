@@ -22,7 +22,7 @@ import { CookieConsent } from "@/components/landing/CookieConsent";
 import { OpenSourceSection } from "@/components/landing/OpenSourceSection";
 import { AccessVisual, BoardVisual, DriveVisual, TaskVisual } from "@/components/landing/visuals";
 
-const PAGE_URL = "https://todobeenew.lovable.app/";
+const PAGE_URL = "https://todobee.com";
 const TITLE = "Todobee - The #1 Project Management Software For Google Workspace";
 const DESCRIPTION =
   "Plan projects on clear boards, track tasks with checklists, notes and files, and keep your team's work in your own Google Drive.";
