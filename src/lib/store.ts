@@ -644,12 +644,13 @@ export const actions = {
       replaced += 1;
     }
     const idMap = new Map<string, string>();
+    const userMap = peopleByBackupId(incoming.users, state.users);
     const projects = [
       ...state.projects.filter((project) => !removedIds.has(project.id)),
       ...chosen.map((project) => {
         const id = uid("p");
         idMap.set(project.id, id);
-        const memberIds = project.memberIds.filter((memberId) => state.users.some((user) => user.id === memberId));
+        const memberIds = mapPeople(project.memberIds, userMap);
         if (!memberIds.includes(state.currentUserId)) memberIds.push(state.currentUserId);
         return {
           ...project,
@@ -668,7 +669,6 @@ export const actions = {
       idMap.set(section.id, id);
       sections.push({ ...section, id, projectId });
     }
-    const knownUsers = new Set(state.users.map((user) => user.id));
     const knownLabels = new Set(state.labels.map((label) => label.id));
     const tasks = state.tasks.filter((task) => !removedIds.has(task.projectId));
     for (const task of incoming.tasks) {
@@ -680,11 +680,19 @@ export const actions = {
         id: uid("t"),
         projectId,
         sectionId,
-        assigneeIds: (task.assigneeIds ?? []).filter((id) => knownUsers.has(id)),
+        assigneeIds: mapPeople(task.assigneeIds, userMap),
         labelIds: (task.labelIds ?? []).filter((id) => knownLabels.has(id)),
         checklist: (task.checklist ?? []).map((item) => ({ ...item, id: uid("c") })),
-        comments: (task.comments ?? []).map((comment) => ({ ...comment, id: uid("m") })),
-        files: (task.files ?? []).map((file) => ({ ...file, id: uid("f") })),
+        comments: (task.comments ?? []).map((comment) => ({
+          ...comment,
+          id: uid("m"),
+          userId: userMap.get(comment.userId) ?? comment.userId,
+        })),
+        files: (task.files ?? []).map((file) => ({
+          ...file,
+          id: uid("f"),
+          userId: userMap.get(file.userId) ?? file.userId,
+        })),
       });
     }
     set((current) => ({ ...current, projects, sections, tasks }));
@@ -729,7 +737,39 @@ function uniqueCopyName(name: string, taken: Set<string>) {
 
 function backupBoards(data: unknown) {
   const clean = migrate(sanitizeBackup(data));
-  return { projects: clean.projects, sections: clean.sections, tasks: clean.tasks };
+  return { users: clean.users, projects: clean.projects, sections: clean.sections, tasks: clean.tasks };
+}
+
+/** Point backup people at the current workspace people, matching email when the id changed. */
+function peopleByBackupId(backupUsers: User[], currentUsers: User[]) {
+  const byEmail = new Map<string, string>();
+  for (const user of currentUsers) {
+    const email = user.email.trim().toLowerCase();
+    if (email) byEmail.set(email, user.id);
+  }
+  const currentIds = new Set(currentUsers.map((user) => user.id));
+  const map = new Map<string, string>();
+  for (const user of backupUsers) {
+    if (currentIds.has(user.id)) {
+      map.set(user.id, user.id);
+      continue;
+    }
+    const match = byEmail.get(user.email.trim().toLowerCase());
+    if (match) map.set(user.id, match);
+  }
+  return map;
+}
+
+function mapPeople(ids: string[] | undefined, userMap: Map<string, string>) {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const id of ids ?? []) {
+    const next = userMap.get(id);
+    if (!next || seen.has(next)) continue;
+    seen.add(next);
+    out.push(next);
+  }
+  return out;
 }
 
 function taskAllowed(id: string) {
