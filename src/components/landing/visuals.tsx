@@ -2,15 +2,14 @@ import type { ReactNode } from "react";
 import {
   CalendarDays,
   Check,
-  Circle,
   CircleCheck,
   FileText,
   Flag,
   FolderClosed,
   HardDrive,
   Inbox,
-  MoreVertical,
-  Plus,
+  Lock,
+  Mail,
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -258,67 +257,81 @@ export function MyTasksVisual() {
 
 export function AccessVisual() {
   const members = [
-    { id: "as", initials: "AS", color: "teal" },
-    { id: "mk", initials: "MK", color: "pink" },
-    { id: "nk", initials: "NK", color: "amber" },
+    {
+      name: "Lilly McCarthy",
+      email: "lilly@company.com",
+      initials: "LM",
+      color: "teal",
+      role: "Admin",
+    },
+    { name: "Maya Khan", email: "maya@company.com", initials: "MK", color: "pink", role: "User" },
+    { name: "Arun Shah", email: "arun@company.com", initials: "AS", color: "amber", role: "User" },
   ] as const;
-  const legal = { id: "legal", name: "Legal", color: "slate" } as const;
+  const projects = [
+    { name: "Marketing Campaign", hidden: false },
+    { name: "Product Launch", hidden: false },
+    { name: "Finance", hidden: true },
+  ];
   return (
-    <Stage label="A shared team project with three users and one admin, listing tasks with labels and due dates">
-      <div className={cn(panel, "p-5")}>
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-lg font-medium text-foreground">Team project</p>
-          <div className="flex items-center gap-1">
-            <div className="flex -space-x-2">
-              {members.map((m) => (
-                <span
-                  key={m.id}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-on-swatch ring-2 ring-card"
-                  style={{ backgroundColor: labelVar(m.color) }}
-                >
-                  {m.initials}
-                </span>
-              ))}
-            </div>
-            <MoreVertical className="h-5 w-5 text-muted-foreground" />
-          </div>
-        </div>
-        <p className="mt-4 flex items-center gap-3 font-medium text-link">
-          <Plus className="h-5 w-5" /> Add a task
-        </p>
-        <ul className="mt-3 space-y-4">
-          <AccessTask title="Quarterly planning">
-            <LabelChip label={L.urgent} pill />
-          </AccessTask>
-          <AccessTask title="Submit Q4 report">
-            <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm text-link">
-              <CalendarDays className="h-4 w-4" strokeWidth={1.8} /> In 3 days
-            </span>
-          </AccessTask>
-          <AccessTask title="Legal review of contract">
-            <LabelChip label={legal} pill />
-          </AccessTask>
-          <AccessTask title="Update roadmap" />
-        </ul>
-        <div className="mt-5 flex items-center justify-between border-t pt-4">
-          <p className="text-sm text-muted-foreground">3 users · 1 admin</p>
-          <span className="rounded-full bg-primary-container px-3 py-1 text-sm font-medium text-on-primary-container">
-            Shared
+    <Stage label="Inviting a teammate by email, a member list showing who is an Admin and who is a User, and the projects one member can see">
+      <div className={cn(panel, "mr-8 mb-24 p-5 sm:mr-10")}>
+        <p className="font-semibold text-foreground">Team project</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">Invite people by email</p>
+        <div className="mt-3 flex items-center gap-2 rounded-full bg-muted px-3 py-2">
+          <Mail className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} />
+          <span className="flex-1 truncate text-sm text-foreground">teammate@company.com</span>
+          <span className="shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
+            Invite
           </span>
         </div>
+        <ul className="mt-4 space-y-3">
+          {members.map((m) => (
+            <li key={m.name} className="flex items-center gap-3">
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-on-swatch"
+                style={{ backgroundColor: labelVar(m.color) }}
+              >
+                {m.initials}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">{m.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{m.email}</p>
+              </div>
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium",
+                  m.role === "Admin"
+                    ? "bg-primary-container text-on-primary-container"
+                    : "border text-muted-foreground",
+                )}
+              >
+                {m.role}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className={cn(panel, "absolute right-0 bottom-0 w-52 p-3.5")}>
+        <p className="text-xs font-semibold text-muted-foreground">Maya can see</p>
+        <ul className="mt-2 space-y-2">
+          {projects.map((p) => (
+            <li
+              key={p.name}
+              className={cn(
+                "flex items-center gap-2 text-sm",
+                p.hidden ? "text-muted-foreground" : "text-foreground",
+              )}
+            >
+              {p.hidden ? (
+                <Lock className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+              ) : (
+                <Check className="h-4 w-4 shrink-0 text-link" strokeWidth={2.2} />
+              )}
+              <span className="truncate">{p.name}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </Stage>
-  );
-}
-
-function AccessTask({ title, children }: { title: string; children?: ReactNode }) {
-  return (
-    <li className="flex items-start gap-3">
-      <Circle className="mt-0.5 h-5 w-5 shrink-0 text-subtle" strokeWidth={1.5} />
-      <div className="min-w-0">
-        <p className="text-foreground">{title}</p>
-        {children && <div className="mt-2">{children}</div>}
-      </div>
-    </li>
   );
 }

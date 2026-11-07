@@ -2,6 +2,16 @@ import type { ReactNode } from "react";
 import { LandingFooter, LandingNav } from "./LandingChrome";
 import { PublicTheme } from "./PublicTheme";
 
+export function legalHead(title: string, description: string, path?: string) {
+  return {
+    meta: [
+      { title: `${title} · Todobee` },
+      { name: "description", content: description },
+      { property: "og:url", content: path },
+    ],
+  };
+}
+
 export function LegalPage({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div id="top" className="min-h-dvh bg-background text-foreground">

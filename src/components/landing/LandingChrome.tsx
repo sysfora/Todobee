@@ -73,6 +73,7 @@ export function LandingFooter() {
               <FooterLink href="/#features">Features</FooterLink>
               <FooterLink href="/#pricing">Pricing</FooterLink>
               <FooterLink href="/#faq">FAQ</FooterLink>
+              <FooterLink href="/security">Security</FooterLink>
             </FooterColumn>
             <FooterColumn title="Links">
               <FooterLink href="/privacy">Privacy</FooterLink>

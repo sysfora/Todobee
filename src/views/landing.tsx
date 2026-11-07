@@ -144,7 +144,10 @@ export function LandingPage() {
             own Google Drive.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <SignInButton className={cn(buttonVariants({ size: "lg" }), "gap-3 pl-1.5 pr-6")}>
+            <SignInButton
+              className={cn(buttonVariants({ size: "lg" }), "gap-3 pl-1.5 pr-6")}
+              signedInClassName={cn(buttonVariants({ size: "lg" }), "px-6")}
+            >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-background">
                 <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden>
                   <path
