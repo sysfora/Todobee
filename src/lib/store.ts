@@ -304,23 +304,33 @@ export const actions = {
 
   // Projects
   createProject(input: Pick<Project, "name" | "color" | "memberIds">): string {
+    if (!isAdminUser(state)) return "";
+    const name = input.name.trim();
+    if (!name || state.projects.some((project) => projectKey(project.name) === projectKey(name))) return "";
     const id = uid("p");
-    if (!isAdminUser(state)) return id;
     set((s) => ({
       ...s,
       projects: [
         ...s.projects,
-        { ...input, id, favorite: false, favoriteBy: [], createdAt: new Date().toISOString() },
+        { ...input, name, id, favorite: false, favoriteBy: [], createdAt: new Date().toISOString() },
       ],
     }));
     return id;
   },
-  updateProject(id: string, patch: Partial<Project>) {
-    if (!isAdminUser(state)) return;
+  updateProject(id: string, patch: Partial<Project>): boolean {
+    if (!isAdminUser(state)) return false;
+    const name = patch.name?.trim();
+    if (
+      name &&
+      state.projects.some((project) => project.id !== id && projectKey(project.name) === projectKey(name))
+    ) {
+      return false;
+    }
     set((s) => ({
       ...s,
-      projects: s.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+      projects: s.projects.map((p) => (p.id === id ? { ...p, ...patch, ...(name ? { name } : {}) } : p)),
     }));
+    return true;
   },
   /** Anyone can star a project they can see; users only see projects they were added to. */
   toggleFavorite(id: string) {
@@ -598,29 +608,45 @@ export const actions = {
   },
   /**
    * Adds projects and their tasks from a backup. People, labels, settings and the
-   * subscription stay as they are. Matching project names are skipped unless override is set.
+   * subscription stay as they are. A matching name is skipped, replaced, or added as Name_Copy.
    */
-  importBackup(data: unknown, override = false): { added: number; replaced: number } {
+  importBackup(
+    data: unknown,
+    choice: "skip" | "override" | "copy" = "skip",
+  ): { added: number; replaced: number; copied: number } {
     if (!isAdminUser(state)) throw new Error("Only admins can restore backups");
     const incoming = backupBoards(data);
-    const have = new Set(state.projects.map((project) => projectKey(project.name)));
-    const chosen = new Map<string, Project>();
+    const taken = new Set(state.projects.map((project) => projectKey(project.name)));
+    const chosen: Project[] = [];
+    const removedIds = new Set<string>();
+    let replaced = 0;
+    let copied = 0;
     for (const project of incoming.projects) {
       const key = projectKey(project.name);
       if (!key) continue;
-      if (have.has(key) && !override) continue;
-      chosen.set(key, project);
+      if (!taken.has(key)) {
+        chosen.push({ ...project, name: project.name.trim() });
+        taken.add(key);
+        continue;
+      }
+      if (choice === "skip") continue;
+      if (choice === "copy") {
+        const name = uniqueCopyName(project.name, taken);
+        chosen.push({ ...project, name });
+        taken.add(projectKey(name));
+        copied += 1;
+        continue;
+      }
+      const existing = state.projects.find((item) => projectKey(item.name) === key);
+      if (!existing || removedIds.has(existing.id)) continue;
+      removedIds.add(existing.id);
+      chosen.push({ ...project, name: existing.name });
+      replaced += 1;
     }
-    const replacing = new Set(
-      [...chosen.keys()].filter((key) => have.has(key)),
-    );
-    const removedIds = new Set(
-      state.projects.filter((project) => replacing.has(projectKey(project.name))).map((project) => project.id),
-    );
     const idMap = new Map<string, string>();
     const projects = [
       ...state.projects.filter((project) => !removedIds.has(project.id)),
-      ...[...chosen.values()].map((project) => {
+      ...chosen.map((project) => {
         const id = uid("p");
         idMap.set(project.id, id);
         const memberIds = project.memberIds.filter((memberId) => state.users.some((user) => user.id === memberId));
@@ -662,7 +688,7 @@ export const actions = {
       });
     }
     set((current) => ({ ...current, projects, sections, tasks }));
-    return { added: chosen.size - replacing.size, replaced: replacing.size };
+    return { added: chosen.length - replaced - copied, replaced, copied };
   },
   /** Members may only edit their own name and picture; the last admin can't be demoted. */
   updateUser(id: string, patch: Partial<User>): boolean {
@@ -688,6 +714,17 @@ export const actions = {
 
 function projectKey(name: string) {
   return name.trim().toLowerCase();
+}
+
+function uniqueCopyName(name: string, taken: Set<string>) {
+  const base = name.trim();
+  let candidate = `${base}_Copy`;
+  let n = 2;
+  while (taken.has(projectKey(candidate))) {
+    candidate = `${base}_Copy${n}`;
+    n += 1;
+  }
+  return candidate;
 }
 
 function backupBoards(data: unknown) {

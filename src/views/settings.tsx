@@ -635,17 +635,18 @@ function BackupsSection() {
     URL.revokeObjectURL(a.href);
   };
 
-  const applyBackup = (data: unknown, override: boolean) => {
-    const result = actions.importBackup(data, override);
-    if (result.added === 0 && result.replaced === 0) {
+  const applyBackup = (data: unknown, choice: "skip" | "override" | "copy") => {
+    const result = actions.importBackup(data, choice);
+    if (result.added === 0 && result.replaced === 0 && result.copied === 0) {
       toast.error("Those projects already exist", {
-        description: "Nothing was changed. Override a project if you want the backup to replace it.",
+        description: "Nothing was changed. Override a project, or add it as a copy with a different name.",
       });
       return;
     }
     const parts: string[] = [];
     if (result.added) parts.push(`${result.added} project${result.added === 1 ? "" : "s"} added`);
     if (result.replaced) parts.push(`${result.replaced} overridden`);
+    if (result.copied) parts.push(`${result.copied} added as ${result.copied === 1 ? "a copy" : "copies"}`);
     toast.success(parts.join(", "));
   };
 
@@ -664,6 +665,18 @@ function BackupsSection() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "That file isn't a Todobee backup");
     }
+  };
+
+  const finishRestore = (choice: "skip" | "override" | "copy") => {
+    if (pending === null) return;
+    decided.current = true;
+    try {
+      applyBackup(pending, choice);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "That file isn't a Todobee backup");
+    }
+    setPending(null);
+    setConflicts([]);
   };
 
   const conflictList =
@@ -705,26 +718,13 @@ function BackupsSection() {
               void importBackup(file);
             }}
           />
-          <ConfirmDialog
+          <Dialog
             open={pending !== null}
-            title="A project with this name already exists"
-            description={`${conflictList} Override ${conflicts.length === 1 ? "that project" : "them"} with the backup? Current tasks in ${conflicts.length === 1 ? "that project" : "those projects"} will be replaced. Projects with a new name will still be added.`}
-            confirmLabel="Override project"
-            tone="default"
-            onConfirm={() => {
-              if (pending === null) return;
-              decided.current = true;
-              try {
-                applyBackup(pending, true);
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : "That file isn't a Todobee backup");
-              }
-            }}
             onOpenChange={(open) => {
               if (open) return;
               if (!decided.current && pending !== null) {
                 try {
-                  applyBackup(pending, false);
+                  applyBackup(pending, "skip");
                 } catch (error) {
                   toast.error(error instanceof Error ? error.message : "That file isn't a Todobee backup");
                 }
@@ -733,7 +733,43 @@ function BackupsSection() {
               setPending(null);
               setConflicts([]);
             }}
-          />
+          >
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>A project with this name already exists</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {conflictList} Project names have to be different. Override the current{" "}
+                {conflicts.length === 1 ? "project" : "projects"}, or add{" "}
+                {conflicts.length === 1 ? `“${conflicts[0]}_Copy”` : "each one as a copy"} so both stay.
+              </p>
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="button"
+                  className="w-full shadow-none hover:shadow-none"
+                  onClick={() => finishRestore("override")}
+                >
+                  Override current project
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full shadow-none hover:shadow-none"
+                  onClick={() => finishRestore("copy")}
+                >
+                  Add as {conflicts.length === 1 ? `${conflicts[0]}_Copy` : "name_Copy"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => finishRestore("skip")}
+                >
+                  Keep current projects
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       )}
     </Card>

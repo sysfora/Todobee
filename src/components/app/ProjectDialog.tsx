@@ -38,10 +38,13 @@ export function ProjectDialog({
     const trimmed = name.trim();
     if (!trimmed) return setError("Please enter a project name.");
     if (project) {
-      actions.updateProject(project.id, { name: trimmed, color, memberIds: members });
+      if (!actions.updateProject(project.id, { name: trimmed, color, memberIds: members })) {
+        return setError("A project with this name already exists. Choose a different name.");
+      }
       onOpenChange(false);
     } else {
       const id = actions.createProject({ name: trimmed, color, memberIds: members });
+      if (!id) return setError("A project with this name already exists. Choose a different name.");
       onOpenChange(false);
       navigate({ to: "/projects/$projectId", params: { projectId: id } });
     }
