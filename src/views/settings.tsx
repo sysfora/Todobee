@@ -622,6 +622,9 @@ function BackupsSection() {
   const { workspace } = useAppState();
   const allowed = planAllows(workspace.plan, "backups");
   const fileRef = useRef<HTMLInputElement>(null);
+  const decided = useRef(false);
+  const [pending, setPending] = useState<unknown>(null);
+  const [conflicts, setConflicts] = useState<string[]>([]);
 
   const exportBackup = () => {
     const blob = new Blob([JSON.stringify(getState(), null, 2)], { type: "application/json" });
@@ -632,18 +635,44 @@ function BackupsSection() {
     URL.revokeObjectURL(a.href);
   };
 
+  const applyBackup = (data: unknown, override: boolean) => {
+    const result = actions.importBackup(data, override);
+    if (result.added === 0 && result.replaced === 0) {
+      toast.error("Those projects already exist", {
+        description: "Nothing was changed. Override a project if you want the backup to replace it.",
+      });
+      return;
+    }
+    const parts: string[] = [];
+    if (result.added) parts.push(`${result.added} project${result.added === 1 ? "" : "s"} added`);
+    if (result.replaced) parts.push(`${result.replaced} overridden`);
+    toast.success(parts.join(", "));
+  };
+
   const importBackup = async (f: File | undefined) => {
     if (!f) return;
     try {
-      actions.importBackup(JSON.parse(await f.text()));
-      toast.success("Backup restored");
-    } catch {
-      toast.error("That file isn't a Todobee backup");
+      const data = JSON.parse(await f.text()) as unknown;
+      const names = actions.backupProjectConflicts(data);
+      if (names.length) {
+        decided.current = false;
+        setPending(data);
+        setConflicts(names);
+        return;
+      }
+      applyBackup(data, false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "That file isn't a Todobee backup");
     }
   };
 
+  const conflictList =
+    conflicts.length === 1
+      ? `“${conflicts[0]}” is already in this workspace.`
+      : `These projects already exist: ${conflicts.join(", ")}.`;
+
   return (
-    <Card title="Backups" description="Download a copy of every project, task, note and user.">
+    <Card title="Backups" description="Download a copy of this workspace, or add projects and tasks from a backup. People, settings and your subscription stay as they are.">
       {!allowed ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted px-4 py-3 text-sm">
           <span className="flex items-center gap-2 text-foreground">
@@ -670,7 +699,40 @@ function BackupsSection() {
             type="file"
             accept="application/json"
             className="hidden"
-            onChange={(e) => importBackup(e.target.files?.[0])}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              void importBackup(file);
+            }}
+          />
+          <ConfirmDialog
+            open={pending !== null}
+            title="A project with this name already exists"
+            description={`${conflictList} Override ${conflicts.length === 1 ? "that project" : "them"} with the backup? Current tasks in ${conflicts.length === 1 ? "that project" : "those projects"} will be replaced. Projects with a new name will still be added.`}
+            confirmLabel="Override project"
+            tone="default"
+            onConfirm={() => {
+              if (pending === null) return;
+              decided.current = true;
+              try {
+                applyBackup(pending, true);
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : "That file isn't a Todobee backup");
+              }
+            }}
+            onOpenChange={(open) => {
+              if (open) return;
+              if (!decided.current && pending !== null) {
+                try {
+                  applyBackup(pending, false);
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "That file isn't a Todobee backup");
+                }
+              }
+              decided.current = false;
+              setPending(null);
+              setConflicts([]);
+            }}
           />
         </div>
       )}

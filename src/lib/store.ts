@@ -581,11 +581,88 @@ export const actions = {
       tasks: s.tasks.map((t) => ({ ...t, labelIds: t.labelIds.filter((x) => x !== id) })),
     }));
   },
-  /** Throws when the file isn't a valid backup. */
-  importBackup(data: unknown) {
+  /** Project names in the file that already exist in this workspace. Throws when the file isn't a backup. */
+  backupProjectConflicts(data: unknown): string[] {
     if (!isAdminUser(state)) throw new Error("Only admins can restore backups");
-    const clean = migrate(sanitizeBackup(data));
-    set(() => clean);
+    const incoming = backupBoards(data);
+    const have = new Set(state.projects.map((project) => projectKey(project.name)));
+    const names: string[] = [];
+    const seen = new Set<string>();
+    for (const project of incoming.projects) {
+      const key = projectKey(project.name);
+      if (!key || !have.has(key) || seen.has(key)) continue;
+      seen.add(key);
+      names.push(project.name.trim());
+    }
+    return names;
+  },
+  /**
+   * Adds projects and their tasks from a backup. People, labels, settings and the
+   * subscription stay as they are. Matching project names are skipped unless override is set.
+   */
+  importBackup(data: unknown, override = false): { added: number; replaced: number } {
+    if (!isAdminUser(state)) throw new Error("Only admins can restore backups");
+    const incoming = backupBoards(data);
+    const have = new Set(state.projects.map((project) => projectKey(project.name)));
+    const chosen = new Map<string, Project>();
+    for (const project of incoming.projects) {
+      const key = projectKey(project.name);
+      if (!key) continue;
+      if (have.has(key) && !override) continue;
+      chosen.set(key, project);
+    }
+    const replacing = new Set(
+      [...chosen.keys()].filter((key) => have.has(key)),
+    );
+    const removedIds = new Set(
+      state.projects.filter((project) => replacing.has(projectKey(project.name))).map((project) => project.id),
+    );
+    const idMap = new Map<string, string>();
+    const projects = [
+      ...state.projects.filter((project) => !removedIds.has(project.id)),
+      ...[...chosen.values()].map((project) => {
+        const id = uid("p");
+        idMap.set(project.id, id);
+        const memberIds = project.memberIds.filter((memberId) => state.users.some((user) => user.id === memberId));
+        if (!memberIds.includes(state.currentUserId)) memberIds.push(state.currentUserId);
+        return {
+          ...project,
+          id,
+          memberIds,
+          favorite: false,
+          favoriteBy: [],
+        };
+      }),
+    ];
+    const sections = state.sections.filter((section) => !removedIds.has(section.projectId));
+    for (const section of incoming.sections) {
+      const projectId = idMap.get(section.projectId);
+      if (!projectId) continue;
+      const id = uid("s");
+      idMap.set(section.id, id);
+      sections.push({ ...section, id, projectId });
+    }
+    const knownUsers = new Set(state.users.map((user) => user.id));
+    const knownLabels = new Set(state.labels.map((label) => label.id));
+    const tasks = state.tasks.filter((task) => !removedIds.has(task.projectId));
+    for (const task of incoming.tasks) {
+      const projectId = idMap.get(task.projectId);
+      const sectionId = idMap.get(task.sectionId);
+      if (!projectId || !sectionId) continue;
+      tasks.push({
+        ...task,
+        id: uid("t"),
+        projectId,
+        sectionId,
+        assigneeIds: (task.assigneeIds ?? []).filter((id) => knownUsers.has(id)),
+        labelIds: (task.labelIds ?? []).filter((id) => knownLabels.has(id)),
+        checklist: (task.checklist ?? []).map((item) => ({ ...item, id: uid("c") })),
+        comments: (task.comments ?? []).map((comment) => ({ ...comment, id: uid("m") })),
+        files: (task.files ?? []).map((file) => ({ ...file, id: uid("f") })),
+      });
+    }
+    set((current) => ({ ...current, projects, sections, tasks }));
+    return { added: chosen.size - replacing.size, replaced: replacing.size };
   },
   /** Members may only edit their own name and picture; the last admin can't be demoted. */
   updateUser(id: string, patch: Partial<User>): boolean {
@@ -608,6 +685,15 @@ export const actions = {
     return true;
   },
 };
+
+function projectKey(name: string) {
+  return name.trim().toLowerCase();
+}
+
+function backupBoards(data: unknown) {
+  const clean = migrate(sanitizeBackup(data));
+  return { projects: clean.projects, sections: clean.sections, tasks: clean.tasks };
+}
 
 function taskAllowed(id: string) {
   const t = state.tasks.find((x) => x.id === id);
