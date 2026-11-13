@@ -81,18 +81,25 @@ async function ensureSchema(db: PocketBase) {
   const fields = (users.fields ?? []) as { name: string; max?: number }[];
   const have = new Set(fields.map((field) => field.name));
   const avatarMax = 500_000;
+  const googleSubMax = 1000;
   const extra = [
     have.has("name") ? null : { name: "name", type: "text", max: 200 },
     have.has("avatar") ? null : { name: "avatar", type: "text", max: avatarMax },
-    have.has("googleSub") ? null : { name: "googleSub", type: "text", max: 128 },
+    have.has("googleSub") ? null : { name: "googleSub", type: "text", max: googleSubMax },
     have.has("refreshToken")
       ? null
       : { name: "refreshToken", type: "text", hidden: true, max: 5000 },
   ].filter(Boolean);
   const avatar = fields.find((field) => field.name === "avatar");
+  const googleSub = fields.find((field) => field.name === "googleSub");
   const widened = avatar && (avatar.max ?? 0) < avatarMax;
-  if (extra.length || widened) {
-    const next = fields.map((field) => (field.name === "avatar" ? { ...field, max: avatarMax } : field));
+  const googleSubShort = googleSub && (googleSub.max ?? 0) > 0 && googleSub.max < googleSubMax;
+  if (extra.length || widened || googleSubShort) {
+    const next = fields.map((field) => {
+      if (field.name === "avatar" && widened) return { ...field, max: avatarMax };
+      if (field.name === "googleSub" && googleSubShort) return { ...field, max: googleSubMax };
+      return field;
+    });
     await db.collections.update(users.id, { fields: [...next, ...extra] });
   }
 
