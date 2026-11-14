@@ -10,6 +10,7 @@ export interface PbUser {
   avatar?: string;
   googleSub?: string;
   refreshToken?: string;
+  isLifetimePaid?: boolean;
 }
 
 export interface PbWorkspace {
@@ -86,6 +87,7 @@ async function ensureSchema(db: PocketBase) {
     have.has("name") ? null : { name: "name", type: "text", max: 200 },
     have.has("avatar") ? null : { name: "avatar", type: "text", max: avatarMax },
     have.has("googleSub") ? null : { name: "googleSub", type: "text", max: googleSubMax },
+    have.has("isLifetimePaid") ? null : { name: "isLifetimePaid", type: "bool" },
     have.has("refreshToken")
       ? null
       : { name: "refreshToken", type: "text", hidden: true, max: 5000 },
@@ -93,7 +95,7 @@ async function ensureSchema(db: PocketBase) {
   const avatar = fields.find((field) => field.name === "avatar");
   const googleSub = fields.find((field) => field.name === "googleSub");
   const widened = avatar && (avatar.max ?? 0) < avatarMax;
-  const googleSubShort = googleSub && (googleSub.max ?? 0) > 0 && googleSub.max < googleSubMax;
+  const googleSubShort = googleSub && (googleSub.max ?? 0) > 0 && (googleSub.max ?? 0) < googleSubMax;
   if (extra.length || widened || googleSubShort) {
     const next = fields.map((field) => {
       if (field.name === "avatar" && widened) return { ...field, max: avatarMax };

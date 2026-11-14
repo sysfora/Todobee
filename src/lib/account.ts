@@ -20,11 +20,12 @@ export interface Account {
     seats: number;
     subscribedAt: string | null;
     renewsAt: string | null;
+    isLifetimePaid?: boolean;
   };
 }
 
 export const subscribeStep = (a: Pick<Account, "role" | "workspace">) =>
-  a.workspace.subscribedAt ? "app" : a.role === "admin" ? "choose-plan" : "wait-for-admin";
+  a.workspace.isLifetimePaid || a.workspace.subscribedAt ? "app" : a.role === "admin" ? "choose-plan" : "wait-for-admin";
 
 export function safeRedirect(path: unknown): string {
   if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) return "/dashboard";
@@ -65,6 +66,7 @@ export function demoAccount(): Account {
       seats: state.workspace.seats,
       subscribedAt: renewsAt,
       renewsAt,
+      isLifetimePaid: false,
     },
   };
 }

@@ -155,7 +155,7 @@ function billingOf(workspace: PbWorkspace) {
   };
 }
 
-function accountPayload(
+async function accountPayload(
   user: PbUser,
   member: PbMember,
   workspace: PbWorkspace,
@@ -180,8 +180,18 @@ function accountPayload(
       seats: workspace.seats,
       subscribedAt: workspace.subscribedAt || null,
       renewsAt: workspace.renewsAt || null,
+      isLifetimePaid: await ownerIsLifetimePaid(workspace),
     },
   };
+}
+
+async function ownerIsLifetimePaid(workspace: PbWorkspace) {
+  try {
+    const owner = await pb().collection("users").getOne<PbUser>(workspace.owner);
+    return Boolean(owner.isLifetimePaid);
+  } catch {
+    return false;
+  }
 }
 
 async function adminNameFor(workspace: PbWorkspace, member: PbMember, user: PbUser) {
@@ -318,7 +328,8 @@ app.get("/api/auth/google/callback", async (c) => {
     if (!member) member = await createWorkspace(user);
     const workspace = await pb().collection("workspaces").getOne<PbWorkspace>(member.workspace);
     const home = member.role === "admin" ? "/dashboard" : "/projects";
-    const dest = workspace.subscribedAt ? safeNext(state.next || home) : "/subscribe";
+    const paid = Boolean(workspace.subscribedAt) || (await ownerIsLifetimePaid(workspace));
+    const dest = paid ? safeNext(state.next || home) : "/subscribe";
     c.header("set-cookie", sessionCookie(sealJson({ uid: user.id, wid: member.workspace }, 60 * 60 * 24 * 30), origin.startsWith("https://")));
     console.log(`[Google OAuth] Login successful for ${user.email}, redirecting to ${dest}`);
     return c.redirect(`${origin}${dest}`);
@@ -411,7 +422,7 @@ app.get("/api/me", async (c) => {
     }),
   );
   return c.json(
-    accountPayload(
+    await accountPayload(
       session.user,
       session.member,
       session.workspace,
@@ -655,6 +666,9 @@ app.post("/api/billing/checkout", async (c) => {
     return c.json({ error: "Enterprise is set up with our team. Email contact@sysfora.com." }, 400);
   }
   const seats = clampSeats(Number(body?.seats) || MIN_SEATS, plan);
+  if (await ownerIsLifetimePaid(session.workspace)) {
+    return c.json({ error: "This workspace is lifetime free, so it doesn't need a subscription." }, 400);
+  }
   try {
     const origin = env.requestOrigin((name) => c.req.header(name), c.req.url);
     const url = await createCheckout(session.workspace, session.user.email, plan, seats, origin);
@@ -684,6 +698,15 @@ app.post("/api/billing/update", async (c) => {
     plan,
   );
   if (problem) return c.json({ error: problem }, 400);
+  if (await ownerIsLifetimePaid(session.workspace)) {
+    const workspace = await pb().collection("workspaces").update<PbWorkspace>(session.workspace.id, { plan, seats });
+    return c.json({
+      plan: workspace.plan,
+      seats: workspace.seats,
+      renewsAt: workspace.renewsAt || null,
+      name: workspace.name,
+    });
+  }
   if (plan === session.workspace.plan && seats === session.workspace.seats) {
     return c.json({
       plan: session.workspace.plan,
