@@ -2,6 +2,8 @@ import type { User } from "./types";
 
 export type PlanId = "premium" | "pro" | "enterprise";
 
+export const ENTERPRISE_MEETING_URL = "https://calendly.com/romisyed/meeting";
+
 export interface Plan {
   id: PlanId;
   name: string;

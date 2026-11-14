@@ -22,6 +22,7 @@ import {
   activeInvites,
   billingChange,
   defaultRenewal,
+  ENTERPRISE_MEETING_URL,
   formatRenewal,
   money,
   type PlanId,
@@ -495,9 +496,7 @@ function SubscriptionSection() {
 
   const requestSave = async () => {
     if (plan === "enterprise" && workspace.plan !== "enterprise") {
-      toast("Enterprise is set up with our team", {
-        description: "We'll contact you to set up your Shared Drive and multiple admins.",
-      });
+      window.location.assign(ENTERPRISE_MEETING_URL);
       return;
     }
     const err = seatChangeError(seats, used, plan);
@@ -590,7 +589,7 @@ function SubscriptionSection() {
           )}
           <Button disabled={!changed || !!error} onClick={requestSave}>
             {plan === "enterprise" && workspace.plan !== "enterprise"
-              ? "Contact sales"
+              ? "Contact us"
               : bill.dueToday > 0
                 ? `Pay ${money(bill.dueToday)}`
                 : "Update subscription"}

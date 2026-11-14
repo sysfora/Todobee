@@ -11,9 +11,9 @@ import {
   defaultRenewal,
   formatRenewal,
   getPlan,
+  ENTERPRISE_MEETING_URL,
   MIN_SEATS,
   money,
-  planMaxSeats,
   seatChangeError,
   yearlyTotal,
   type PlanId,
@@ -115,7 +115,6 @@ function ChoosePlan({ account }: { account: Account }) {
 
   const enterprise = plan === "enterprise";
   const error = seatChangeError(seats, 1, plan);
-  const maxSeats = planMaxSeats(plan);
   const total = yearlyTotal(plan, seats);
   const renewal = formatRenewal(defaultRenewal());
 
@@ -152,17 +151,15 @@ function ChoosePlan({ account }: { account: Account }) {
             Enterprise is set up with our team
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            We'll set up your Shared Drive, multiple admins and onboarding with you. Email us and
-            we'll get back to you, or choose Premium or Pro to start now.
+          We'll help you set up your shared drive, configure multiple admins, and complete the onboarding process. 
+          Just book a meeting with us, and we'll take care of the rest.
           </p>
         </section>
       ) : (
         <section className="rounded-2xl bg-card p-5 shadow-card sm:p-6">
           <h2 className="text-lg font-medium text-foreground">Seats</h2>
           <p className="mt-1 mb-5 text-sm text-muted-foreground">
-            {maxSeats
-              ? `Between ${MIN_SEATS} and ${maxSeats} seats. You can add more later.`
-              : `At least ${MIN_SEATS} seats, no upper limit.`}
+            A minimum of {MIN_SEATS} seats is required.
           </p>
           <SeatPicker seats={seats} onChange={setSeats} plan={plan} />
           {error && (
@@ -182,7 +179,7 @@ function ChoosePlan({ account }: { account: Account }) {
               yearly
             </p>
             <a
-              href={`mailto:contact@sysfora.com?subject=${encodeURIComponent("Enterprise Plan")}`}
+              href={ENTERPRISE_MEETING_URL}
               className={cn(buttonVariants({ size: "lg" }), "w-full sm:w-auto")}
             >
               <Mail /> Contact us
