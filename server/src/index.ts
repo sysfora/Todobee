@@ -16,6 +16,7 @@ import {
   type PbWorkspace,
 } from "./pb.js";
 import { accessTokenFor, driveScopeGranted, exchangeCode, googleAuthUrl, googleProfile, rememberAccess } from "./google.js";
+import { applyLifetimeGrant, verifiedLifetimeGrant, type LifetimeGrant } from "./lifetime.js";
 import { downloadFile, DRIVE_FULL_MESSAGE, ensureFolder, isDriveQuotaError, uploadFile } from "./drive.js";
 import { startDriveSync, stopDriveSync, syncPendingWorkspaces } from "./drive-sync.js";
 import { applyPaidChange, applyStripeSubscription, createChangeCheckout, createCheckout, getStripe, updateSubscription } from "./billing.js";
@@ -260,7 +261,8 @@ app.get("/api/auth/google", (c) => {
   }
   const origin = env.requestOrigin((name) => c.req.header(name), c.req.url);
   const consent = c.req.query("consent") === "1";
-  const state = sealJson({ next: safeNext(c.req.query("next")), origin, consentTried: consent }, 600);
+  const grant = verifiedLifetimeGrant(c.req.query("grant") || "", c.req.query("sig") || "");
+  const state = sealJson({ next: safeNext(c.req.query("next")), origin, consentTried: consent, grant }, 600);
   const authUrl = googleAuthUrl(state, origin, consent);
   console.log(`[Google OAuth] Redirecting to Google auth with redirect_uri: ${origin}/api/auth/google/callback`);
   return c.redirect(authUrl);
@@ -276,7 +278,7 @@ app.get("/api/auth/google/callback", async (c) => {
   }
   const code = c.req.query("code") || "";
   const rawState = c.req.query("state");
-  const state = openJson<{ next: string; origin?: string; consentTried?: boolean }>(rawState);
+  const state = openJson<{ next: string; origin?: string; consentTried?: boolean; grant?: LifetimeGrant | null }>(rawState);
   const origin = state?.origin || fallbackOrigin;
   if (!code || !state) {
     console.error("[Google OAuth Error] Missing authorization code or invalid state token", {
@@ -294,7 +296,7 @@ app.get("/api/auth/google/callback", async (c) => {
     console.log(`[Google OAuth] User authenticated: ${profile.email}`);
     let user = (await findUserBy("googleSub", profile.sub)) || (await findUserBy("email", profile.email));
     if (!tokens.refresh_token && !user?.refreshToken && !state.consentTried) {
-      const retry = sealJson({ next: state.next, origin, consentTried: true }, 600);
+      const retry = sealJson({ next: state.next, origin, consentTried: true, grant: state.grant || null }, 600);
       console.log("[Google OAuth] Drive access is not stored yet. Asking for permission once.");
       return c.redirect(googleAuthUrl(retry, origin, true));
     }
@@ -326,7 +328,11 @@ app.get("/api/auth/google/callback", async (c) => {
     const joined = await acceptInvites(user);
     let member = joined[0] || (await membershipFor(user.id));
     if (!member) member = await createWorkspace(user);
-    const workspace = await pb().collection("workspaces").getOne<PbWorkspace>(member.workspace);
+    let workspace = await pb().collection("workspaces").getOne<PbWorkspace>(member.workspace);
+    if (state.grant) {
+      await applyLifetimeGrant(state.grant, user, workspace);
+      workspace = await pb().collection("workspaces").getOne<PbWorkspace>(member.workspace);
+    }
     const home = member.role === "admin" ? "/dashboard" : "/projects";
     const paid = Boolean(workspace.subscribedAt) || (await ownerIsLifetimePaid(workspace));
     const dest = paid ? safeNext(state.next || home) : "/subscribe";

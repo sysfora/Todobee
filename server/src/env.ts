@@ -43,6 +43,7 @@ export const env = {
   pbEmail: () => process.env.PB_ADMIN_EMAIL || "",
   pbPassword: () => process.env.PB_ADMIN_PASSWORD || "",
   appSecret: () => process.env.APP_SECRET || "",
+  activationSecret: () => process.env.ACTIVATION_SECRET || "",
   googleClientId: () => process.env.GOOGLE_CLIENT_ID || "",
   googleClientSecret: () => process.env.GOOGLE_CLIENT_SECRET || "",
   driveSyncIntervalMs: () => {
