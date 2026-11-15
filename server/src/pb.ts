@@ -184,6 +184,44 @@ async function ensureSchema(db: PocketBase) {
       await db.collections.update(members.id, { indexes: [memberIndex] });
     }
   }
+
+  const licenseFields = [
+    { name: "licenseKey", type: "text", required: true, max: 64 },
+    { name: "prevLicenseKey", type: "text", max: 64 },
+    { name: "parentLicenseKey", type: "text", max: 64 },
+    { name: "status", type: "select", maxSelect: 1, required: true, values: ["inactive", "active", "deactivated"] },
+    { name: "tier", type: "number", min: 1 },
+    { name: "plan", type: "select", maxSelect: 1, required: true, values: ["premium", "pro"] },
+    { name: "seats", type: "number", min: 0 },
+    { name: "extraSeats", type: "number", min: 0 },
+    { name: "partnerPlanName", type: "text", max: 200 },
+    { name: "unitQuantity", type: "number", min: 0 },
+    { name: "user", type: "relation", collectionId: usersId, maxSelect: 1 },
+    { name: "userEmail", type: "text", max: 320 },
+    { name: "event", type: "text", max: 32 },
+  ];
+  const licenseIndex = "CREATE UNIQUE INDEX `idx_appsumo_license_key` ON `appsumoLicenses` (`licenseKey`)";
+  try {
+    const licenses = await db.collections.getOne("appsumoLicenses");
+    const fields = (licenses.fields ?? []) as { name: string }[];
+    const have = new Set(fields.map((field) => field.name));
+    const extra = licenseFields.filter((field) => !have.has(field.name));
+    const indexes = (licenses as { indexes?: string[] }).indexes ?? [];
+    const hasIndex = indexes.some((index) => index.includes("idx_appsumo_license_key"));
+    if (extra.length || !hasIndex) {
+      await db.collections.update(licenses.id, {
+        ...(extra.length ? { fields: [...fields, ...extra] } : {}),
+        ...(hasIndex ? {} : { indexes: [...indexes, licenseIndex] }),
+      });
+    }
+  } catch {
+    await db.collections.create({
+      name: "appsumoLicenses",
+      type: "base",
+      fields: licenseFields,
+      indexes: [licenseIndex],
+    });
+  }
 }
 
 export async function initPocketBase() {
