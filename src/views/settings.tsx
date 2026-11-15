@@ -1,13 +1,14 @@
 "use client";
 import { Link } from "@/lib/nav";
 import { useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Check, Download, Lock, Monitor, Moon, Pencil, Sun, Trash2, Upload } from "lucide-react";
 import { getTheme, setTheme, type Theme } from "@/lib/theme";
 import { playCompleteSound, setSoundsEnabled, soundsEnabled } from "@/lib/sounds";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { startPlanChange } from "@/lib/account";
+import { accountQuery, startPlanChange } from "@/lib/account";
 import { isDemo } from "@/lib/demo-mode";
 import { actions, DEFAULT_PREFS, getState, useAppState } from "@/lib/store";
 import { SWATCHES, labelVar, swatchName, type Swatch } from "@/lib/colors";
@@ -479,6 +480,8 @@ function LabelDialog({
 
 function SubscriptionSection() {
   const { workspace, users, invites } = useAppState();
+  const { data: account } = useQuery(accountQuery);
+  const lifetime = Boolean(account?.workspace.isLifetimePaid);
   const [seats, setSeats] = useState(workspace.seats);
   const [plan, setPlan] = useState<PlanId>(workspace.plan);
   useEffect(() => {
@@ -521,20 +524,33 @@ function SubscriptionSection() {
     <div className="space-y-6">
       <Card
         title="Your plan"
-        description="All plans are billed yearly, per seat. Every user takes one seat."
+        description={
+          lifetime
+            ? `Lifetime ${getPlan(workspace.plan).name}. This plan cannot be changed.`
+            : "All plans are billed yearly, per seat. Every user takes one seat."
+        }
       >
-        <PlanCards value={plan} onChange={setPlan} currentPlan={workspace.plan} />
+        <PlanCards
+          value={plan}
+          onChange={setPlan}
+          currentPlan={workspace.plan}
+          locked={lifetime}
+        />
       </Card>
 
       <Card
         title="Seats"
-        description={`${
-          maxSeats
-            ? `Between ${MIN_SEATS} and ${maxSeats} seats.`
-            : `At least ${MIN_SEATS} seats, no upper limit.`
-        } You're using ${used} of ${workspace.seats}. Added seats are charged only for the days left until renewal.`}
+        description={
+          lifetime
+            ? `Your lifetime plan includes ${workspace.seats} seats. You're using ${used} of them.`
+            : `${
+                maxSeats
+                  ? `Between ${MIN_SEATS} and ${maxSeats} seats.`
+                  : `At least ${MIN_SEATS} seats, no upper limit.`
+              } You're using ${used} of ${workspace.seats}. Added seats are charged only for the days left until renewal.`
+        }
       >
-        <SeatPicker seats={seats} onChange={setSeats} plan={plan} />
+        <SeatPicker seats={seats} onChange={setSeats} plan={plan} locked={lifetime} />
 
         {error && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-danger">
@@ -551,13 +567,24 @@ function SubscriptionSection() {
       <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-4 rounded-lg bg-card p-6 shadow-card">
         <div>
           <p className="text-sm text-muted-foreground">
-            {getPlan(plan).name} · {seats} seats · renews {renewal}
+            {lifetime
+              ? `Lifetime ${getPlan(workspace.plan).name} · ${workspace.seats} seats`
+              : `${getPlan(plan).name} · ${seats} seats · renews ${renewal}`}
           </p>
           <p className="text-2xl font-semibold text-foreground">
-            {money(bill.atRenewal)}{" "}
-            <span className="text-sm font-normal text-muted-foreground">/ year</span>
+            {lifetime ? (
+              "Paid"
+            ) : (
+              <>
+                {money(bill.atRenewal)}{" "}
+                <span className="text-sm font-normal text-muted-foreground">/ year</span>
+              </>
+            )}
           </p>
-          {changed && !error && (
+          {lifetime && (
+            <p className="mt-1 text-sm text-muted-foreground">Lifetime access cannot be upgraded or downgraded here.</p>
+          )}
+          {!lifetime && changed && !error && (
             <p className="mt-1 text-sm text-foreground">
               {bill.dueToday > 0 ? (
                 <>
@@ -575,26 +602,28 @@ function SubscriptionSection() {
             </p>
           )}
         </div>
-        <div className="flex gap-2">
-          {changed && (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setSeats(workspace.seats);
-                setPlan(workspace.plan);
-              }}
-            >
-              Cancel
+        {!lifetime && (
+          <div className="flex gap-2">
+            {changed && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSeats(workspace.seats);
+                  setPlan(workspace.plan);
+                }}
+              >
+                Cancel
+              </Button>
+            )}
+            <Button disabled={!changed || !!error} onClick={requestSave}>
+              {plan === "enterprise" && workspace.plan !== "enterprise"
+                ? "Contact us"
+                : bill.dueToday > 0
+                  ? `Pay ${money(bill.dueToday)}`
+                  : "Update subscription"}
             </Button>
-          )}
-          <Button disabled={!changed || !!error} onClick={requestSave}>
-            {plan === "enterprise" && workspace.plan !== "enterprise"
-              ? "Contact us"
-              : bill.dueToday > 0
-                ? `Pay ${money(bill.dueToday)}`
-                : "Update subscription"}
-          </Button>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

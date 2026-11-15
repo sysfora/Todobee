@@ -12,12 +12,14 @@ export function PlanCards({
   onChange,
   currentPlan,
   label = "Plan",
+  locked = false,
 }: {
   value: PlanId;
   onChange: (plan: PlanId) => void;
   /** Marks the plan the workspace is on now. */
   currentPlan?: PlanId | undefined;
   label?: string;
+  locked?: boolean;
 }) {
   const id = useId();
   return (
@@ -32,10 +34,14 @@ export function PlanCards({
             aria-checked={active}
             aria-labelledby={`${id}-${p.id}`}
             aria-describedby={`${id}-${p.id}-details`}
-            onClick={() => onChange(p.id)}
+            onClick={() => {
+              if (!locked) onChange(p.id);
+            }}
+            disabled={locked}
             className={cn(
               "flex flex-col rounded-lg border-2 p-5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
               active ? "border-primary bg-primary/5" : "border-border hover:border-input",
+              locked && "cursor-default opacity-90",
             )}
           >
             <div className="flex items-center justify-between gap-2">
@@ -124,10 +130,12 @@ export function SeatPicker({
   seats,
   onChange,
   plan,
+  locked = false,
 }: {
   seats: number;
   onChange: (seats: number) => void;
   plan: PlanId;
+  locked?: boolean;
 }) {
   const maxSeats = planMaxSeats(plan);
   return (
@@ -135,7 +143,7 @@ export function SeatPicker({
       <div className="flex items-center gap-3">
         <SeatStep
           label="Remove a seat"
-          blocked={seats <= MIN_SEATS}
+          blocked={locked || seats <= MIN_SEATS}
           onStep={() => onChange(clampSeats(seats - 1, plan))}
         >
           <Minus className="h-4 w-4" />
@@ -146,13 +154,14 @@ export function SeatPicker({
           min={MIN_SEATS}
           max={maxSeats ?? undefined}
           value={seats}
+          disabled={locked}
           onChange={(e) => onChange(Number(e.target.value) || MIN_SEATS)}
           onBlur={() => onChange(clampSeats(seats, plan))}
           className="w-20 text-center text-lg font-semibold"
         />
         <SeatStep
           label="Add a seat"
-          blocked={maxSeats !== null && seats >= maxSeats}
+          blocked={locked || (maxSeats !== null && seats >= maxSeats)}
           onStep={() => onChange(clampSeats(seats + 1, plan))}
         >
           <Plus className="h-4 w-4" />
@@ -167,6 +176,7 @@ export function SeatPicker({
             max={maxSeats}
             step={1}
             value={[Math.min(seats, maxSeats)]}
+            disabled={locked}
             onValueChange={([v]) => v !== undefined && onChange(v)}
           />
           <div className="mt-2 flex justify-between text-xs text-muted-foreground">

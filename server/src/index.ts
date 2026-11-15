@@ -834,13 +834,7 @@ app.post("/api/billing/update", async (c) => {
   );
   if (problem) return c.json({ error: problem }, 400);
   if (await ownerIsLifetimePaid(session.workspace)) {
-    const workspace = await pb().collection("workspaces").update<PbWorkspace>(session.workspace.id, { plan, seats });
-    return c.json({
-      plan: workspace.plan,
-      seats: workspace.seats,
-      renewsAt: workspace.renewsAt || null,
-      name: workspace.name,
-    });
+    return c.json({ error: "Lifetime plans cannot be changed in Settings." }, 400);
   }
   if (plan === session.workspace.plan && seats === session.workspace.seats) {
     return c.json({

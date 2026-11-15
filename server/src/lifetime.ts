@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "./env.js";
 import { pb, type PbUser, type PbWorkspace } from "./pb.js";
 import { MIN_SEATS, type PlanId } from "./demo/subscription.js";
+import type { AppState } from "./demo/types.js";
 
 export interface LifetimeGrant {
   plan: PlanId;
@@ -78,14 +79,37 @@ export function lifetimeDecision(user: PbUser, workspace: PbWorkspace, grant: Li
   return "apply";
 }
 
-export async function applyLifetimeGrant(grant: LifetimeGrant, user: PbUser, workspace: PbWorkspace) {
-  const target = await ownedWorkspace(user, workspace);
-  await pb().collection("users").update(user.id, { isLifetimePaid: true });
-  await pb().collection("workspaces").update(target.id, {
-    plan: grant.plan,
-    seats: grant.seats,
-    subscribedAt: new Date().toISOString(),
+async function writeWorkspacePlan(workspace: PbWorkspace, grant: LifetimeGrant) {
+  const plan = grant.plan === "pro" ? "pro" : grant.plan === "enterprise" ? "enterprise" : "premium";
+  const seats = Math.max(MIN_SEATS, Number(grant.seats) || MIN_SEATS);
+  const cache: AppState | undefined = workspace.cache
+    ? {
+        ...workspace.cache,
+        workspace: { ...workspace.cache.workspace, plan, seats },
+      }
+    : undefined;
+  const updated = await pb().collection("workspaces").update<PbWorkspace>(workspace.id, {
+    plan,
+    seats,
+    subscribedAt: workspace.subscribedAt || new Date().toISOString(),
     status: "active",
+    ...(cache ? { cache, cacheRevision: (workspace.cacheRevision ?? 0) + 1, driveSynced: false } : {}),
   });
-  return target;
+  console.log(`[activation] Wrote ${plan} / ${seats} seats to workspace ${workspace.id}`);
+  return updated;
+}
+
+export async function applyLifetimeGrant(grant: LifetimeGrant, user: PbUser, workspace: PbWorkspace) {
+  await pb().collection("users").update(user.id, { isLifetimePaid: true });
+  const owned = await pb()
+    .collection("workspaces")
+    .getFullList<PbWorkspace>({ filter: `owner="${user.id}"` })
+    .catch(() => [] as PbWorkspace[]);
+  const rows = owned.length ? owned : [await ownedWorkspace(user, workspace)];
+  if (!rows.some((row) => row.id === workspace.id)) rows.push(workspace);
+  let last = workspace;
+  for (const row of rows) {
+    last = await writeWorkspacePlan(row, grant);
+  }
+  return last;
 }
