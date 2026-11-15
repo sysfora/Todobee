@@ -18,6 +18,10 @@ export function isDriveQuotaError(error: unknown): error is DriveQuotaError {
   return error instanceof DriveQuotaError;
 }
 
+export function isDriveScopeError(error: unknown) {
+  return error instanceof Error && /insufficient authentication scopes|insufficientPermissions/i.test(error.message);
+}
+
 function checkQuotaFailure(status: number, text: string) {
   if (
     status === 507 ||
@@ -54,8 +58,6 @@ async function findFile(token: string, query: string) {
   url.searchParams.set("q", query);
   url.searchParams.set("fields", "files(id)");
   url.searchParams.set("pageSize", "1");
-  url.searchParams.set("orderBy", "createdTime");
-  url.searchParams.set("spaces", "drive");
   const res = await drive(token, url.toString());
   const json = (await res.json()) as { files?: { id: string }[] };
   return json.files?.[0]?.id;

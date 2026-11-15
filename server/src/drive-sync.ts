@@ -1,7 +1,7 @@
-import { deleteFile, DRIVE_FULL_MESSAGE, ensureFolder, isDriveQuotaError, syncDrive, uploadFile } from "./drive.js";
+import { deleteFile, DRIVE_FULL_MESSAGE, ensureFolder, isDriveQuotaError, isDriveScopeError, syncDrive, uploadFile } from "./drive.js";
 import { withWorkspaceLock } from "./lock.js";
 import { env } from "./env.js";
-import { accessTokenFor } from "./google.js";
+import { accessTokenFor, driveScopeGranted, forgetDriveGrant } from "./google.js";
 import { pb, type PbUser, type PbWorkspace } from "./pb.js";
 import type { AppState } from "./demo/types.js";
 
@@ -44,6 +44,7 @@ async function flushWorkspaceUnlocked(workspace: PbWorkspace): Promise<{ synced:
   const revision = workspace.cacheRevision ?? 0;
 
   const owner = await pb().collection("users").getOne<PbUser>(workspace.owner);
+  if (!(await driveScopeGranted(owner))) return { synced: false, operations: 0 };
   const token = await accessTokenFor(owner);
   if (!token) return { synced: false, operations: 0 };
 
@@ -145,6 +146,10 @@ async function flushAll() {
       operations += result.operations;
       if (result.synced) synced += 1;
     } catch (error) {
+      if (isDriveScopeError(error)) {
+        forgetDriveGrant(workspace.owner);
+        continue;
+      }
       if (isDriveQuotaError(error)) {
         quotaReached = true;
         console.warn(

@@ -86,9 +86,11 @@ export async function accessTokenFor(user: PbUser) {
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body,
   });
-  const json = (await res.json()) as { access_token?: string; expires_in?: number };
+  const json = (await res.json()) as { access_token?: string; expires_in?: number; scope?: string };
   if (!res.ok || !json.access_token) return "";
-  tokens.set(user.id, { access: json.access_token, exp: Date.now() + (json.expires_in ?? 3600) * 1000 });
+  const exp = Date.now() + (json.expires_in ?? 3600) * 1000;
+  tokens.set(user.id, { access: json.access_token, exp });
+  if (json.scope) driveGrants.set(user.id, { ok: scopeAllowsDrive(json.scope), exp });
   return json.access_token;
 }
 
@@ -102,6 +104,11 @@ export function rememberAccess(userId: string, access: string, expiresIn = 3600,
   if (scope) driveGrants.set(userId, { ok: scopeAllowsDrive(scope), exp });
 }
 
+/** Drive rejected this token for scope. Skip further Drive calls until the check expires. */
+export function forgetDriveGrant(userId: string) {
+  driveGrants.set(userId, { ok: false, exp: Date.now() + 60_000 });
+}
+
 /** True only when this Google account granted Todobee access to Drive. */
 export async function driveScopeGranted(user: PbUser) {
   const known = driveGrants.get(user.id);
@@ -112,7 +119,7 @@ export async function driveScopeGranted(user: PbUser) {
     const res = await fetch(
       `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(access)}`,
     );
-    if (!res.ok) return Boolean(user.refreshToken);
+    if (!res.ok) return false;
     const json = (await res.json()) as { scope?: string; expires_in?: number };
     const ok = scopeAllowsDrive(json.scope || "");
     driveGrants.set(user.id, {
@@ -121,7 +128,7 @@ export async function driveScopeGranted(user: PbUser) {
     });
     return ok;
   } catch {
-    return Boolean(user.refreshToken);
+    return false;
   }
 }
 
