@@ -16,7 +16,13 @@ import {
   type PbWorkspace,
 } from "./pb.js";
 import { accessTokenFor, driveScopeGranted, exchangeCode, googleAuthUrl, googleProfile, rememberAccess } from "./google.js";
-import { applyLifetimeGrant, verifiedLifetimeGrant, type LifetimeGrant } from "./lifetime.js";
+import {
+  applyLifetimeGrant,
+  lifetimeDecision,
+  ownedWorkspace,
+  verifiedLifetimeGrant,
+  type LifetimeGrant,
+} from "./lifetime.js";
 import { downloadFile, DRIVE_FULL_MESSAGE, ensureFolder, isDriveQuotaError, uploadFile } from "./drive.js";
 import { startDriveSync, stopDriveSync, syncPendingWorkspaces } from "./drive-sync.js";
 import { applyPaidChange, applyStripeSubscription, createChangeCheckout, createCheckout, getStripe, updateSubscription } from "./billing.js";
@@ -255,14 +261,49 @@ app.post("/api/support", async (c) => {
   }
 });
 
-app.get("/api/auth/google", (c) => {
+function activationPage(origin: string, grantBody: string, grantSig: string) {
+  return `${origin}/activate?grant=${encodeURIComponent(grantBody)}&sig=${encodeURIComponent(grantSig)}`;
+}
+
+async function finishLifetimeGrant(
+  user: PbUser,
+  workspace: PbWorkspace,
+  grant: LifetimeGrant,
+  grantBody: string,
+  grantSig: string,
+  origin: string,
+  home: string,
+) {
+  const target = await ownedWorkspace(user, workspace);
+  if (lifetimeDecision(user, target, grant) === "downgrade") {
+    return activationPage(origin, grantBody, grantSig);
+  }
+  await applyLifetimeGrant(grant, user, target);
+  return `${origin}${home}`;
+}
+
+app.get("/api/auth/google", async (c) => {
   if (!env.googleClientId() || !env.googleClientSecret()) {
     return c.json({ error: "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET." }, 500);
   }
   const origin = env.requestOrigin((name) => c.req.header(name), c.req.url);
   const consent = c.req.query("consent") === "1";
-  const grant = verifiedLifetimeGrant(c.req.query("grant") || "", c.req.query("sig") || "");
-  const state = sealJson({ next: safeNext(c.req.query("next")), origin, consentTried: consent, grant }, 600);
+  const grantBody = c.req.query("grant") || "";
+  const grantSig = c.req.query("sig") || "";
+  const grant = verifiedLifetimeGrant(grantBody, grantSig);
+  if (grant) {
+    const session = await activeSession(c);
+    if (session?.member && session.workspace) {
+      const home = session.member.role === "admin" ? "/dashboard" : "/projects";
+      return c.redirect(
+        await finishLifetimeGrant(session.user, session.workspace, grant, grantBody, grantSig, origin, home),
+      );
+    }
+  }
+  const state = sealJson(
+    { next: safeNext(c.req.query("next")), origin, consentTried: consent, grant, grantBody, grantSig },
+    600,
+  );
   const authUrl = googleAuthUrl(state, origin, consent);
   console.log(`[Google OAuth] Redirecting to Google auth with redirect_uri: ${origin}/api/auth/google/callback`);
   return c.redirect(authUrl);
@@ -278,7 +319,14 @@ app.get("/api/auth/google/callback", async (c) => {
   }
   const code = c.req.query("code") || "";
   const rawState = c.req.query("state");
-  const state = openJson<{ next: string; origin?: string; consentTried?: boolean; grant?: LifetimeGrant | null }>(rawState);
+  const state = openJson<{
+    next: string;
+    origin?: string;
+    consentTried?: boolean;
+    grant?: LifetimeGrant | null;
+    grantBody?: string;
+    grantSig?: string;
+  }>(rawState);
   const origin = state?.origin || fallbackOrigin;
   if (!code || !state) {
     console.error("[Google OAuth Error] Missing authorization code or invalid state token", {
@@ -296,7 +344,17 @@ app.get("/api/auth/google/callback", async (c) => {
     console.log(`[Google OAuth] User authenticated: ${profile.email}`);
     let user = (await findUserBy("googleSub", profile.sub)) || (await findUserBy("email", profile.email));
     if (!tokens.refresh_token && !user?.refreshToken && !state.consentTried) {
-      const retry = sealJson({ next: state.next, origin, consentTried: true, grant: state.grant || null }, 600);
+      const retry = sealJson(
+        {
+          next: state.next,
+          origin,
+          consentTried: true,
+          grant: state.grant || null,
+          grantBody: state.grantBody || "",
+          grantSig: state.grantSig || "",
+        },
+        600,
+      );
       console.log("[Google OAuth] Drive access is not stored yet. Asking for permission once.");
       return c.redirect(googleAuthUrl(retry, origin, true));
     }
@@ -329,14 +387,24 @@ app.get("/api/auth/google/callback", async (c) => {
     let member = joined[0] || (await membershipFor(user.id));
     if (!member) member = await createWorkspace(user);
     let workspace = await pb().collection("workspaces").getOne<PbWorkspace>(member.workspace);
-    if (state.grant) {
-      await applyLifetimeGrant(state.grant, user, workspace);
-      workspace = await pb().collection("workspaces").getOne<PbWorkspace>(member.workspace);
-    }
     const home = member.role === "admin" ? "/dashboard" : "/projects";
+    c.header("set-cookie", sessionCookie(sealJson({ uid: user.id, wid: member.workspace }, 60 * 60 * 24 * 30), origin.startsWith("https://")));
+    if (state.grant) {
+      const dest = await finishLifetimeGrant(
+        user,
+        workspace,
+        state.grant,
+        state.grantBody || "",
+        state.grantSig || "",
+        origin,
+        home,
+      );
+      console.log(`[Google OAuth] Login successful for ${user.email}, redirecting to ${dest}`);
+      return c.redirect(dest);
+    }
+    workspace = await pb().collection("workspaces").getOne<PbWorkspace>(member.workspace);
     const paid = Boolean(workspace.subscribedAt) || (await ownerIsLifetimePaid(workspace));
     const dest = paid ? safeNext(state.next || home) : "/subscribe";
-    c.header("set-cookie", sessionCookie(sealJson({ uid: user.id, wid: member.workspace }, 60 * 60 * 24 * 30), origin.startsWith("https://")));
     console.log(`[Google OAuth] Login successful for ${user.email}, redirecting to ${dest}`);
     return c.redirect(`${origin}${dest}`);
   } catch (error) {
@@ -414,6 +482,37 @@ async function createWorkspace(user: PbUser) {
 app.post("/api/auth/logout", (c) => {
   c.header("set-cookie", clearSessionCookie());
   return c.json({ ok: true });
+});
+
+app.get("/api/activation/preview", async (c) => {
+  const session = await activeSession(c);
+  if (!session?.workspace) return c.json({ error: "You're signed out." }, 401);
+  const grant = verifiedLifetimeGrant(c.req.query("grant") || "", c.req.query("sig") || "");
+  if (!grant) return c.json({ error: "That activation link is not valid." }, 400);
+  const workspace = await ownedWorkspace(session.user, session.workspace);
+  return c.json({
+    kind: lifetimeDecision(session.user, workspace, grant),
+    current: {
+      plan: workspace.plan,
+      seats: workspace.seats,
+      lifetime: Boolean(session.user.isLifetimePaid),
+    },
+    next: { plan: grant.plan, seats: grant.seats },
+  });
+});
+
+app.post("/api/activation/apply", async (c) => {
+  const session = await activeSession(c);
+  if (!session?.workspace || !session.member) return c.json({ error: "You're signed out." }, 401);
+  const body = (await c.req.json().catch(() => ({}))) as { grant?: string; sig?: string; confirm?: boolean };
+  const grant = verifiedLifetimeGrant(body.grant || "", body.sig || "");
+  if (!grant) return c.json({ error: "That activation link is not valid." }, 400);
+  const workspace = await ownedWorkspace(session.user, session.workspace);
+  if (lifetimeDecision(session.user, workspace, grant) === "downgrade" && !body.confirm) {
+    return c.json({ error: "Confirm the downgrade first." }, 400);
+  }
+  await applyLifetimeGrant(grant, session.user, workspace);
+  return c.json({ ok: true, next: session.member.role === "admin" ? "/dashboard" : "/projects" });
 });
 
 app.get("/api/me", async (c) => {
