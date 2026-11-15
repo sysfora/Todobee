@@ -15,31 +15,45 @@ function secret() {
   return env.activationSecret();
 }
 
-function hexHmac(body: string) {
-  return createHmac("sha256", secret()).update(body).digest("hex");
-}
-
 function planRank(plan: PlanId) {
   if (plan === "enterprise") return 3;
   if (plan === "pro") return 2;
   return 1;
 }
 
-/** Accept only a grant that was signed with ACTIVATION_SECRET and has not expired. */
+function parsePayload(body: string) {
+  try {
+    return JSON.parse(Buffer.from(body, "hex").toString("utf8")) as Partial<LifetimeGrant>;
+  } catch {
+    try {
+      return JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as Partial<LifetimeGrant>;
+    } catch {
+      return null;
+    }
+  }
+}
+
+function signaturesMatch(body: string, signature: string) {
+  const digest = createHmac("sha256", secret()).update(body).digest();
+  let given: Buffer;
+  try {
+    given = Buffer.from(signature.trim(), "hex");
+  } catch {
+    return false;
+  }
+  if (!given.length || given.length !== digest.length) return false;
+  return timingSafeEqual(digest, given);
+}
+
+/** Accept only a grant that was signed with the shared activation secret and has not expired. */
 export function verifiedLifetimeGrant(body: string, signature: string): LifetimeGrant | null {
   if (!body || !signature || !secret()) return null;
-  const expected = Buffer.from(hexHmac(body));
-  const given = Buffer.from(signature);
-  if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
-  try {
-    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as Partial<LifetimeGrant>;
-    if (!payload.exp || payload.exp < Date.now()) return null;
-    const plan: PlanId = payload.plan === "pro" ? "pro" : payload.plan === "enterprise" ? "enterprise" : "premium";
-    const seats = Math.max(MIN_SEATS, Number(payload.seats) || MIN_SEATS);
-    return { plan, seats, exp: payload.exp };
-  } catch {
-    return null;
-  }
+  if (!signaturesMatch(body, signature)) return null;
+  const payload = parsePayload(body);
+  if (!payload?.exp || payload.exp < Date.now()) return null;
+  const plan: PlanId = payload.plan === "pro" ? "pro" : payload.plan === "enterprise" ? "enterprise" : "premium";
+  const seats = Math.max(MIN_SEATS, Number(payload.seats) || MIN_SEATS);
+  return { plan, seats, exp: payload.exp };
 }
 
 export async function ownedWorkspace(user: PbUser, fallback: PbWorkspace) {

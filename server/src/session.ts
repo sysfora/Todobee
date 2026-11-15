@@ -59,6 +59,15 @@ export function clearSessionCookie() {
   return "tb_session=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax";
 }
 
+export function grantCookie(token: string, secure = env.appUrl().startsWith("https://")) {
+  const flag = secure ? "; Secure" : "";
+  return `tb_grant=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=1800${flag}`;
+}
+
+export function clearGrantCookie() {
+  return "tb_grant=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax";
+}
+
 export function readCookie(header: string | undefined, name: string) {
   if (!header) return "";
   for (const part of header.split(";")) {

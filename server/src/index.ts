@@ -4,7 +4,16 @@ import { Hono } from "hono";
 import { getRequestListener } from "@hono/node-server";
 import httpProxy from "http-proxy";
 import { env } from "./env.js";
-import { clearSessionCookie, encrypt, openJson, readCookie, sealJson, sessionCookie } from "./session.js";
+import {
+  clearGrantCookie,
+  clearSessionCookie,
+  encrypt,
+  grantCookie,
+  openJson,
+  readCookie,
+  sealJson,
+  sessionCookie,
+} from "./session.js";
 import {
   findUserBy,
   initPocketBase,
@@ -261,8 +270,20 @@ app.post("/api/support", async (c) => {
   }
 });
 
+function withLifetimeToast(url: string) {
+  const next = new URL(url);
+  next.searchParams.set("lifetime", "activated");
+  return next.toString();
+}
+
 function activationPage(origin: string, grantBody: string, grantSig: string) {
   return `${origin}/activate?grant=${encodeURIComponent(grantBody)}&sig=${encodeURIComponent(grantSig)}`;
+}
+
+function readPackedGrant(cookie: string | undefined) {
+  const packed = openJson<{ g?: string; s?: string }>(readCookie(cookie, "tb_grant"));
+  if (!packed?.g || !packed.s) return { body: "", sig: "", grant: null as LifetimeGrant | null };
+  return { body: packed.g, sig: packed.s, grant: verifiedLifetimeGrant(packed.g, packed.s) };
 }
 
 async function finishLifetimeGrant(
@@ -279,7 +300,7 @@ async function finishLifetimeGrant(
     return activationPage(origin, grantBody, grantSig);
   }
   await applyLifetimeGrant(grant, user, target);
-  return `${origin}${home}`;
+  return withLifetimeToast(`${origin}${home}`);
 }
 
 app.get("/api/auth/google", async (c) => {
@@ -288,17 +309,28 @@ app.get("/api/auth/google", async (c) => {
   }
   const origin = env.requestOrigin((name) => c.req.header(name), c.req.url);
   const consent = c.req.query("consent") === "1";
-  const grantBody = c.req.query("grant") || "";
-  const grantSig = c.req.query("sig") || "";
-  const grant = verifiedLifetimeGrant(grantBody, grantSig);
+  let grantBody = c.req.query("grant") || "";
+  let grantSig = c.req.query("sig") || "";
+  let grant = verifiedLifetimeGrant(grantBody, grantSig);
+  if (!grant) {
+    const packed = readPackedGrant(c.req.header("cookie"));
+    grantBody = packed.body || grantBody;
+    grantSig = packed.sig || grantSig;
+    grant = packed.grant;
+  }
+  if (grantBody && grantSig && !grant) {
+    console.error("[activation] Signed grant was rejected. Check ACTIVATION_SECRET matches the AppSumo signing key.");
+  }
   if (grant) {
-    const session = await activeSession(c);
-    if (session?.member && session.workspace) {
-      const home = session.member.role === "admin" ? "/dashboard" : "/projects";
-      return c.redirect(
-        await finishLifetimeGrant(session.user, session.workspace, grant, grantBody, grantSig, origin, home),
-      );
+    const session = await loadSession(c.req.header("cookie"));
+    const ready = session?.member && session.workspace ? session : session?.user ? await activeSession(c) : null;
+    if (ready?.member && ready.workspace) {
+      const home = ready.member.role === "admin" ? "/dashboard" : "/projects";
+      return c.redirect(await finishLifetimeGrant(ready.user, ready.workspace, grant, grantBody, grantSig, origin, home));
     }
+  }
+  if (grantBody && grantSig) {
+    c.header("set-cookie", grantCookie(sealJson({ g: grantBody, s: grantSig }, 1800), origin.startsWith("https://")));
   }
   const state = sealJson(
     { next: safeNext(c.req.query("next")), origin, consentTried: consent, grant, grantBody, grantSig },
@@ -388,17 +420,14 @@ app.get("/api/auth/google/callback", async (c) => {
     if (!member) member = await createWorkspace(user);
     let workspace = await pb().collection("workspaces").getOne<PbWorkspace>(member.workspace);
     const home = member.role === "admin" ? "/dashboard" : "/projects";
+    const packed = readPackedGrant(c.req.header("cookie"));
+    const grant = state.grant || packed.grant || verifiedLifetimeGrant(state.grantBody || "", state.grantSig || "");
+    const grantBody = state.grantBody || packed.body || "";
+    const grantSig = state.grantSig || packed.sig || "";
     c.header("set-cookie", sessionCookie(sealJson({ uid: user.id, wid: member.workspace }, 60 * 60 * 24 * 30), origin.startsWith("https://")));
-    if (state.grant) {
-      const dest = await finishLifetimeGrant(
-        user,
-        workspace,
-        state.grant,
-        state.grantBody || "",
-        state.grantSig || "",
-        origin,
-        home,
-      );
+    c.header("set-cookie", clearGrantCookie(), { append: true });
+    if (grant) {
+      const dest = await finishLifetimeGrant(user, workspace, grant, grantBody, grantSig, origin, home);
       console.log(`[Google OAuth] Login successful for ${user.email}, redirecting to ${dest}`);
       return c.redirect(dest);
     }
@@ -512,7 +541,8 @@ app.post("/api/activation/apply", async (c) => {
     return c.json({ error: "Confirm the downgrade first." }, 400);
   }
   await applyLifetimeGrant(grant, session.user, workspace);
-  return c.json({ ok: true, next: session.member.role === "admin" ? "/dashboard" : "/projects" });
+  const home = session.member.role === "admin" ? "/dashboard" : "/projects";
+  return c.json({ ok: true, next: `${home}?lifetime=activated` });
 });
 
 app.get("/api/me", async (c) => {

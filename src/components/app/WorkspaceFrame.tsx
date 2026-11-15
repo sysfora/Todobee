@@ -6,6 +6,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app/AppShell";
 import { accountQuery, clearNextPath, subscribeStep } from "@/lib/account";
+import { useLifetimeToast } from "@/hooks/use-lifetime-toast";
 import { isDemo } from "@/lib/demo-mode";
 import { homePathFor } from "@/lib/permissions";
 import { actions, hydrateStore, useStoreHydrated } from "@/lib/store";
@@ -19,6 +20,7 @@ export function WorkspaceFrame({
 }) {
   const router = useRouter();
   const hydrated = useStoreHydrated();
+  const lifetimeReady = useLifetimeToast();
   const openedWorkspace = useRef<string | undefined>(undefined);
   const query = useQuery({ ...accountQuery, enabled: !isDemo, retry: false, refetchInterval: 20_000 });
 
@@ -44,6 +46,7 @@ export function WorkspaceFrame({
     }
     openedWorkspace.current = account.workspace.id;
     if (subscribeStep(account) !== "app") {
+      if (!lifetimeReady) return;
       router.replace("/subscribe");
       return;
     }
@@ -52,7 +55,7 @@ export function WorkspaceFrame({
       return;
     }
     void hydrateStore(account.role).then(() => actions.syncWorkspace(account.workspace));
-  }, [adminOnly, query.data, query.isError, router]);
+  }, [adminOnly, lifetimeReady, query.data, query.isError, router]);
 
   const account = query.data;
   if (isDemo) {

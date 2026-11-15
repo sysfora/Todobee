@@ -19,6 +19,7 @@ import {
   type PlanId,
 } from "@/lib/subscription";
 import { useSignOut } from "@/hooks/use-sign-out";
+import { useLifetimeToast } from "@/hooks/use-lifetime-toast";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { PlanCards, SeatPicker } from "@/components/app/PlanPicker";
 import {
@@ -39,12 +40,13 @@ export function SubscribePage() {
   const navigate = useNavigate();
   const { data: account, isLoading, isError } = useQuery({ ...accountQuery, retry: false });
   const signOut = useSignOut();
+  const lifetimeReady = useLifetimeToast();
   useEffect(() => {
     if (isError) navigate({ to: "/", replace: true });
-    else if (account && subscribeStep(account) === "app") {
+    else if (lifetimeReady && account && subscribeStep(account) === "app") {
       navigate({ to: account.role === "admin" ? "/dashboard" : "/projects", replace: true });
     }
-  }, [account, isError, navigate]);
+  }, [account, isError, lifetimeReady, navigate]);
   useEffect(() => {
     document.documentElement.classList.remove("dark");
   }, []);

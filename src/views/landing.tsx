@@ -1,6 +1,7 @@
 "use client";
 
 import { useResumeSignIn } from "@/hooks/use-google-sign-in";
+import { useLifetimeToast } from "@/hooks/use-lifetime-toast";
 import { SignInButton } from "@/components/landing/SignInButton";
 import { useEffect, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -125,6 +126,7 @@ export function LandingPage() {
     return () => applyTheme();
   }, []);
   useResumeSignIn();
+  useLifetimeToast();
 
   return (
     <div id="top" className="min-h-dvh bg-surface text-foreground">
