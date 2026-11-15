@@ -12,7 +12,7 @@ PUBLIC_PORT="${PUBLIC_PORT:-3000}"
 INTERNAL_PORT=3001
 
 cd /app/web
-PORT="$INTERNAL_PORT" HOSTNAME=127.0.0.1 node server.js &
+PORT="$INTERNAL_PORT" HOSTNAME=0.0.0.0 API_INTERNAL_URL="http://127.0.0.1:${PUBLIC_PORT}" node server.js &
 NEXT_PID=$!
 
 ready=0
@@ -22,7 +22,7 @@ while [ "$i" -lt 50 ]; do
     echo "Next.js exited before listening on 127.0.0.1:$INTERNAL_PORT" >&2
     exit 1
   fi
-  if node -e "fetch('http://127.0.0.1:${INTERNAL_PORT}/').then(()=>process.exit(0)).catch(()=>process.exit(1))"; then
+  if node -e "fetch('http://127.0.0.1:${INTERNAL_PORT}/').then((res)=>process.exit(res.ok || res.status < 500 ? 0 : 1)).catch(()=>process.exit(1))"; then
     ready=1
     break
   fi

@@ -832,8 +832,22 @@ app.post("/api/stripe/webhook", async (c) => {
 });
 
 const listener = getRequestListener(app.fetch);
+const nextOrigin = process.env.NEXT_ORIGIN || "http://127.0.0.1:3001";
 const proxy = httpProxy.createProxyServer({
-  target: process.env.NEXT_ORIGIN || "http://127.0.0.1:3000",
+  target: nextOrigin,
+  changeOrigin: true,
+  xfwd: true,
+});
+
+proxy.on("proxyReq", (proxyReq, req) => {
+  const forwardedHost = req.headers["x-forwarded-host"] || req.headers.host;
+  if (typeof forwardedHost === "string" && forwardedHost) {
+    proxyReq.setHeader("x-forwarded-host", forwardedHost.split(",")[0]!.trim());
+  }
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  if (typeof forwardedProto === "string" && forwardedProto) {
+    proxyReq.setHeader("x-forwarded-proto", forwardedProto.split(",")[0]!.trim());
+  }
 });
 
 await initPocketBase();
@@ -841,7 +855,12 @@ startDriveSync();
 
 function forwardToNext(req: http.IncomingMessage, res: http.ServerResponse, attempts = 0) {
   proxy.web(req, res, undefined, (error) => {
-    if ((error as any)?.code === "ECONNREFUSED" && attempts < 5 && !res.headersSent) {
+    if (
+      ((error as { code?: string })?.code === "ECONNREFUSED" ||
+        (error as { code?: string })?.code === "ECONNRESET") &&
+      attempts < 10 &&
+      !res.headersSent
+    ) {
       setTimeout(() => forwardToNext(req, res, attempts + 1), 600);
       return;
     }
