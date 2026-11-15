@@ -55,8 +55,9 @@ export function sessionCookie(token: string, secure = env.appUrl().startsWith("h
   return `tb_session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}${flag}`;
 }
 
-export function clearSessionCookie() {
-  return "tb_session=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax";
+export function clearSessionCookie(secure = env.appUrl().startsWith("https://")) {
+  const flag = secure ? "; Secure" : "";
+  return `tb_session=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${flag}`;
 }
 
 export function grantCookie(token: string, secure = env.appUrl().startsWith("https://")) {

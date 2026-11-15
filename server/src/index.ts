@@ -321,22 +321,18 @@ app.get("/api/auth/google", async (c) => {
   if (grantBody && grantSig && !grant) {
     console.error("[activation] Signed grant was rejected. Check ACTIVATION_SECRET matches the AppSumo signing key.");
   }
+  const secure = origin.startsWith("https://");
   if (grant) {
-    const session = await loadSession(c.req.header("cookie"));
-    const ready = session?.member && session.workspace ? session : session?.user ? await activeSession(c) : null;
-    if (ready?.member && ready.workspace) {
-      const home = ready.member.role === "admin" ? "/dashboard" : "/projects";
-      return c.redirect(await finishLifetimeGrant(ready.user, ready.workspace, grant, grantBody, grantSig, origin, home));
-    }
+    c.header("set-cookie", clearSessionCookie(secure));
   }
   if (grantBody && grantSig) {
-    c.header("set-cookie", grantCookie(sealJson({ g: grantBody, s: grantSig }, 1800), origin.startsWith("https://")));
+    c.header("set-cookie", grantCookie(sealJson({ g: grantBody, s: grantSig }, 1800), secure), { append: Boolean(grant) });
   }
   const state = sealJson(
     { next: safeNext(c.req.query("next")), origin, consentTried: consent, grant, grantBody, grantSig },
     600,
   );
-  const authUrl = googleAuthUrl(state, origin, consent);
+  const authUrl = googleAuthUrl(state, origin, consent, Boolean(grant));
   console.log(`[Google OAuth] Redirecting to Google auth with redirect_uri: ${origin}/api/auth/google/callback`);
   return c.redirect(authUrl);
 });
@@ -509,7 +505,8 @@ async function createWorkspace(user: PbUser) {
 }
 
 app.post("/api/auth/logout", (c) => {
-  c.header("set-cookie", clearSessionCookie());
+  const origin = env.requestOrigin((name) => c.req.header(name), c.req.url);
+  c.header("set-cookie", clearSessionCookie(origin.startsWith("https://")));
   return c.json({ ok: true });
 });
 

@@ -10,7 +10,7 @@ export function googleRedirectUri(origin = env.appUrl()) {
   return `${origin.replace(/\/+$/, "")}/api/auth/google/callback`;
 }
 
-export function googleAuthUrl(state: string, origin = env.appUrl(), consent = false) {
+export function googleAuthUrl(state: string, origin = env.appUrl(), consent = false, selectAccount = false) {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", env.googleClientId());
   url.searchParams.set("redirect_uri", googleRedirectUri(origin));
@@ -18,8 +18,11 @@ export function googleAuthUrl(state: string, origin = env.appUrl(), consent = fa
   url.searchParams.set("scope", GOOGLE_SCOPES.join(" "));
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("include_granted_scopes", "true");
+  const prompt: string[] = [];
+  if (selectAccount) prompt.push("select_account");
   // Consent only when we still need a Drive refresh token. Granted users skip the permission screens.
-  if (consent) url.searchParams.set("prompt", "consent");
+  if (consent) prompt.push("consent");
+  if (prompt.length) url.searchParams.set("prompt", prompt.join(" "));
   url.searchParams.set("state", state);
   return url.toString();
 }

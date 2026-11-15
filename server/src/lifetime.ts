@@ -7,7 +7,23 @@ import type { AppState } from "./demo/types.js";
 export interface LifetimeGrant {
   plan: PlanId;
   seats: number;
+  tier?: number;
   exp: number;
+}
+
+const TIER_PLANS: Record<number, { plan: PlanId; seats: number }> = {
+  1: { plan: "premium", seats: 10 },
+  2: { plan: "premium", seats: 50 },
+  3: { plan: "premium", seats: 150 },
+  4: { plan: "pro", seats: 10 },
+  5: { plan: "pro", seats: 50 },
+  6: { plan: "pro", seats: 150 },
+};
+
+function fromTier(tier: unknown) {
+  const n = Number(tier);
+  if (!Number.isInteger(n)) return undefined;
+  return TIER_PLANS[n];
 }
 
 export type LifetimeDecision = "apply" | "downgrade";
@@ -52,9 +68,11 @@ export function verifiedLifetimeGrant(body: string, signature: string): Lifetime
   if (!signaturesMatch(body, signature)) return null;
   const payload = parsePayload(body);
   if (!payload?.exp || payload.exp < Date.now()) return null;
-  const plan: PlanId = payload.plan === "pro" ? "pro" : payload.plan === "enterprise" ? "enterprise" : "premium";
-  const seats = Math.max(MIN_SEATS, Number(payload.seats) || MIN_SEATS);
-  return { plan, seats, exp: payload.exp };
+  const mapped = fromTier(payload.tier);
+  const plan: PlanId = mapped?.plan ?? (payload.plan === "pro" ? "pro" : payload.plan === "enterprise" ? "enterprise" : "premium");
+  const parsedSeats = Number(mapped?.seats ?? payload.seats);
+  const seats = Number.isFinite(parsedSeats) && parsedSeats > 0 ? Math.max(MIN_SEATS, parsedSeats) : MIN_SEATS;
+  return { plan, seats, tier: Number(payload.tier) || undefined, exp: payload.exp };
 }
 
 export async function ownedWorkspace(user: PbUser, fallback: PbWorkspace) {
@@ -80,8 +98,10 @@ export function lifetimeDecision(user: PbUser, workspace: PbWorkspace, grant: Li
 }
 
 async function writeWorkspacePlan(workspace: PbWorkspace, grant: LifetimeGrant) {
-  const plan = grant.plan === "pro" ? "pro" : grant.plan === "enterprise" ? "enterprise" : "premium";
-  const seats = Math.max(MIN_SEATS, Number(grant.seats) || MIN_SEATS);
+  const mapped = fromTier(grant.tier);
+  const plan = mapped?.plan ?? (grant.plan === "pro" ? "pro" : grant.plan === "enterprise" ? "enterprise" : "premium");
+  const parsedSeats = Number(mapped?.seats ?? grant.seats);
+  const seats = Number.isFinite(parsedSeats) && parsedSeats > 0 ? Math.max(MIN_SEATS, parsedSeats) : MIN_SEATS;
   const cache: AppState | undefined = workspace.cache
     ? {
         ...workspace.cache,

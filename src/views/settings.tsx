@@ -482,12 +482,37 @@ function SubscriptionSection() {
   const { workspace, users, invites } = useAppState();
   const { data: account } = useQuery(accountQuery);
   const lifetime = Boolean(account?.workspace.isLifetimePaid);
+  const planId = account?.workspace.plan ?? workspace.plan;
+  const seatCount = account?.workspace.seats ?? workspace.seats;
   const [seats, setSeats] = useState(workspace.seats);
   const [plan, setPlan] = useState<PlanId>(workspace.plan);
   useEffect(() => {
     setSeats(workspace.seats);
     setPlan(workspace.plan);
   }, [workspace.seats, workspace.plan]);
+
+  if (lifetime) {
+    const rows = [
+      { label: "Lifetime", value: "Lifetime" },
+      { label: "Plan", value: getPlan(planId).name },
+      { label: "Seats", value: String(seatCount) },
+    ];
+    return (
+      <section className="rounded-lg bg-card p-5 sm:p-6">
+        <dl className="divide-y divide-border">
+          {rows.map((row) => (
+            <div
+              key={row.label}
+              className="flex flex-col gap-1 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+            >
+              <dt className="text-sm text-muted-foreground">{row.label}</dt>
+              <dd className="text-base font-medium text-foreground">{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+    );
+  }
 
   const used = users.length + activeInvites(invites).length;
   const error = seatChangeError(seats, used, plan);
@@ -524,33 +549,20 @@ function SubscriptionSection() {
     <div className="space-y-6">
       <Card
         title="Your plan"
-        description={
-          lifetime
-            ? `Lifetime ${getPlan(workspace.plan).name}. This plan cannot be changed.`
-            : "All plans are billed yearly, per seat. Every user takes one seat."
-        }
+        description="All plans are billed yearly, per seat. Every user takes one seat."
       >
-        <PlanCards
-          value={plan}
-          onChange={setPlan}
-          currentPlan={workspace.plan}
-          locked={lifetime}
-        />
+        <PlanCards value={plan} onChange={setPlan} currentPlan={workspace.plan} />
       </Card>
 
       <Card
         title="Seats"
-        description={
-          lifetime
-            ? `Your lifetime plan includes ${workspace.seats} seats. You're using ${used} of them.`
-            : `${
-                maxSeats
-                  ? `Between ${MIN_SEATS} and ${maxSeats} seats.`
-                  : `At least ${MIN_SEATS} seats, no upper limit.`
-              } You're using ${used} of ${workspace.seats}. Added seats are charged only for the days left until renewal.`
-        }
+        description={`${
+          maxSeats
+            ? `Between ${MIN_SEATS} and ${maxSeats} seats.`
+            : `At least ${MIN_SEATS} seats, no upper limit.`
+        } You're using ${used} of ${workspace.seats}. Added seats are charged only for the days left until renewal.`}
       >
-        <SeatPicker seats={seats} onChange={setSeats} plan={plan} locked={lifetime} />
+        <SeatPicker seats={seats} onChange={setSeats} plan={plan} />
 
         {error && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-danger">
@@ -567,24 +579,13 @@ function SubscriptionSection() {
       <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-4 rounded-lg bg-card p-6 shadow-card">
         <div>
           <p className="text-sm text-muted-foreground">
-            {lifetime
-              ? `Lifetime ${getPlan(workspace.plan).name} · ${workspace.seats} seats`
-              : `${getPlan(plan).name} · ${seats} seats · renews ${renewal}`}
+            {getPlan(plan).name} · {seats} seats · renews {renewal}
           </p>
           <p className="text-2xl font-semibold text-foreground">
-            {lifetime ? (
-              "Paid"
-            ) : (
-              <>
-                {money(bill.atRenewal)}{" "}
-                <span className="text-sm font-normal text-muted-foreground">/ year</span>
-              </>
-            )}
+            {money(bill.atRenewal)}{" "}
+            <span className="text-sm font-normal text-muted-foreground">/ year</span>
           </p>
-          {lifetime && (
-            <p className="mt-1 text-sm text-muted-foreground">Lifetime access cannot be upgraded or downgraded here.</p>
-          )}
-          {!lifetime && changed && !error && (
+          {changed && !error && (
             <p className="mt-1 text-sm text-foreground">
               {bill.dueToday > 0 ? (
                 <>
@@ -602,28 +603,26 @@ function SubscriptionSection() {
             </p>
           )}
         </div>
-        {!lifetime && (
-          <div className="flex gap-2">
-            {changed && (
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setSeats(workspace.seats);
-                  setPlan(workspace.plan);
-                }}
-              >
-                Cancel
-              </Button>
-            )}
-            <Button disabled={!changed || !!error} onClick={requestSave}>
-              {plan === "enterprise" && workspace.plan !== "enterprise"
-                ? "Contact us"
-                : bill.dueToday > 0
-                  ? `Pay ${money(bill.dueToday)}`
-                  : "Update subscription"}
+        <div className="flex gap-2">
+          {changed && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSeats(workspace.seats);
+                setPlan(workspace.plan);
+              }}
+            >
+              Cancel
             </Button>
-          </div>
-        )}
+          )}
+          <Button disabled={!changed || !!error} onClick={requestSave}>
+            {plan === "enterprise" && workspace.plan !== "enterprise"
+              ? "Contact us"
+              : bill.dueToday > 0
+                ? `Pay ${money(bill.dueToday)}`
+                : "Update subscription"}
+          </Button>
+        </div>
       </div>
     </div>
   );
