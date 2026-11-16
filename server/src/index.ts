@@ -337,6 +337,22 @@ app.get("/api/auth/google", async (c) => {
   return c.redirect(authUrl);
 });
 
+function recordFailure(error: unknown) {
+  const response = (error as { response?: { data?: unknown } } | null)?.response;
+  const data = response?.data;
+  if (data && typeof data === "object") {
+    const parts = Object.entries(data as Record<string, { message?: string } | string>)
+      .map(([key, value]) => {
+        if (typeof value === "string") return `${key}: ${value}`;
+        if (value && typeof value === "object" && value.message) return `${key}: ${value.message}`;
+        return "";
+      })
+      .filter(Boolean);
+    if (parts.length) return parts.join("; ");
+  }
+  return error instanceof Error ? error.message : "server_error";
+}
+
 app.get("/api/auth/google/callback", async (c) => {
   const oauthError = c.req.query("error");
   const oauthDesc = c.req.query("error_description");
@@ -393,8 +409,8 @@ app.get("/api/auth/google/callback", async (c) => {
         email: profile.email,
         password,
         passwordConfirm: password,
-        name: profile.name.slice(0, 200),
-        avatar: profile.picture.slice(0, 2000),
+        name: profile.name,
+        avatar: profile.picture,
         googleSub: profile.sub,
         emailVisibility: true,
         verified: true,
@@ -434,8 +450,8 @@ app.get("/api/auth/google/callback", async (c) => {
     return c.redirect(`${origin}${dest}`);
   } catch (error) {
     console.error("[Google OAuth Callback Error]:", error);
-    const msg = error instanceof Error ? error.message : "server_error";
-    return c.redirect(`${origin}/?auth_error=${encodeURIComponent(msg.slice(0, 60))}`);
+    const msg = recordFailure(error);
+    return c.redirect(`${origin}/?auth_error=${encodeURIComponent(msg.slice(0, 400))}`);
   }
 });
 

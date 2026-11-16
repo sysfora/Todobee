@@ -77,37 +77,47 @@ export async function membershipFor(userId: string, workspaceId?: string) {
   return rows[0] ?? null;
 }
 
+type PbField = { name: string; type?: string; max?: number; primaryKey?: boolean; system?: boolean };
+
+/** Highest text length PocketBase will store. Zero means the 5,000 character default. */
+const TEXT_MAX = 5_000_000;
+
+function asFields(collection: { fields?: unknown }): PbField[] {
+  return Array.isArray(collection.fields) ? (collection.fields as PbField[]) : [];
+}
+
+function withoutTextCaps(fields: PbField[]) {
+  let changed = false;
+  const next = fields.map((field) => {
+    if (field.type !== "text" || field.primaryKey || field.system || field.name === "id") return field;
+    if ((field.max ?? 0) >= TEXT_MAX) return field;
+    changed = true;
+    return { ...field, max: TEXT_MAX };
+  });
+  return { next, changed };
+}
+
 async function ensureSchema(db: PocketBase) {
   const users = await db.collections.getOne("users");
-  const fields = (users.fields ?? []) as { name: string; max?: number }[];
+  const fields = asFields(users);
   const have = new Set(fields.map((field) => field.name));
-  const avatarMax = 500_000;
-  const googleSubMax = 1000;
   const extra = [
-    have.has("name") ? null : { name: "name", type: "text", max: 200 },
-    have.has("avatar") ? null : { name: "avatar", type: "text", max: avatarMax },
-    have.has("googleSub") ? null : { name: "googleSub", type: "text", max: googleSubMax },
+    have.has("name") ? null : { name: "name", type: "text", max: TEXT_MAX },
+    have.has("avatar") ? null : { name: "avatar", type: "text", max: TEXT_MAX },
+    have.has("googleSub") ? null : { name: "googleSub", type: "text", max: TEXT_MAX },
     have.has("isLifetimePaid") ? null : { name: "isLifetimePaid", type: "bool" },
     have.has("refreshToken")
       ? null
-      : { name: "refreshToken", type: "text", hidden: true, max: 5000 },
-  ].filter(Boolean);
-  const avatar = fields.find((field) => field.name === "avatar");
-  const googleSub = fields.find((field) => field.name === "googleSub");
-  const widened = avatar && (avatar.max ?? 0) < avatarMax;
-  const googleSubShort = googleSub && (googleSub.max ?? 0) > 0 && (googleSub.max ?? 0) < googleSubMax;
-  if (extra.length || widened || googleSubShort) {
-    const next = fields.map((field) => {
-      if (field.name === "avatar" && widened) return { ...field, max: avatarMax };
-      if (field.name === "googleSub" && googleSubShort) return { ...field, max: googleSubMax };
-      return field;
-    });
-    await db.collections.update(users.id, { fields: [...next, ...extra] });
+      : { name: "refreshToken", type: "text", hidden: true, max: TEXT_MAX },
+  ].filter((field) => field !== null);
+  const widened = withoutTextCaps(fields);
+  if (extra.length || widened.changed) {
+    await db.collections.update(users.id, { fields: [...widened.next, ...extra] });
   }
 
   const usersId = users.id;
   const workspaceFields = (usersIdForRelation: string) => [
-    { name: "name", type: "text", required: true, max: 200 },
+    { name: "name", type: "text", required: true, max: TEXT_MAX },
     { name: "owner", type: "relation", required: true, collectionId: usersIdForRelation, maxSelect: 1 },
     {
       name: "plan",
@@ -118,11 +128,11 @@ async function ensureSchema(db: PocketBase) {
     { name: "seats", type: "number", min: 0 },
     { name: "subscribedAt", type: "date" },
     { name: "renewsAt", type: "date" },
-    { name: "stripeCustomerId", type: "text", max: 200 },
-    { name: "stripeSubscriptionId", type: "text", max: 200 },
-    { name: "driveFolderId", type: "text", max: 200 },
-    { name: "driveFileId", type: "text", max: 200 },
-    { name: "driveSyncError", type: "text", max: 500 },
+    { name: "stripeCustomerId", type: "text", max: TEXT_MAX },
+    { name: "stripeSubscriptionId", type: "text", max: TEXT_MAX },
+    { name: "driveFolderId", type: "text", max: TEXT_MAX },
+    { name: "driveFileId", type: "text", max: TEXT_MAX },
+    { name: "driveSyncError", type: "text", max: TEXT_MAX },
     { name: "cache", type: "json", maxSize: 8000000 },
     { name: "cacheRevision", type: "number", min: 0 },
     { name: "driveSynced", type: "bool" },
@@ -143,11 +153,12 @@ async function ensureSchema(db: PocketBase) {
   }
   if (existing) {
     workspacesId = existing.id;
-    const fields = existing.fields ?? [];
+    const fields = asFields(existing);
     const have = new Set(fields.map((field) => field.name));
     const extra = workspaceFields(usersId).filter((field) => !have.has(field.name));
-    if (extra.length) {
-      await db.collections.update(existing.id, { fields: [...fields, ...extra] });
+    const widened = withoutTextCaps(fields);
+    if (extra.length || widened.changed) {
+      await db.collections.update(existing.id, { fields: [...widened.next, ...extra] });
     }
   } else {
     const created = await db.collections.create({
@@ -186,41 +197,47 @@ async function ensureSchema(db: PocketBase) {
   }
 
   const licenseFields = [
-    { name: "licenseKey", type: "text", required: true, max: 64 },
-    { name: "prevLicenseKey", type: "text", max: 64 },
-    { name: "parentLicenseKey", type: "text", max: 64 },
+    { name: "licenseKey", type: "text", required: true, max: TEXT_MAX },
+    { name: "prevLicenseKey", type: "text", max: TEXT_MAX },
+    { name: "parentLicenseKey", type: "text", max: TEXT_MAX },
     { name: "status", type: "select", maxSelect: 1, required: true, values: ["inactive", "active", "deactivated"] },
     { name: "tier", type: "number", min: 1 },
     { name: "plan", type: "select", maxSelect: 1, required: true, values: ["premium", "pro"] },
     { name: "seats", type: "number", min: 0 },
     { name: "extraSeats", type: "number", min: 0 },
-    { name: "partnerPlanName", type: "text", max: 200 },
+    { name: "partnerPlanName", type: "text", max: TEXT_MAX },
     { name: "unitQuantity", type: "number", min: 0 },
     { name: "user", type: "relation", collectionId: usersId, maxSelect: 1 },
-    { name: "userEmail", type: "text", max: 320 },
-    { name: "event", type: "text", max: 32 },
+    { name: "userEmail", type: "text", max: TEXT_MAX },
+    { name: "event", type: "text", max: TEXT_MAX },
   ];
   const licenseIndex = "CREATE UNIQUE INDEX `idx_appsumo_license_key` ON `appsumoLicenses` (`licenseKey`)";
+  let licenses: { id: string; fields?: unknown; indexes?: string[] } | null = null;
   try {
-    const licenses = await db.collections.getOne("appsumoLicenses");
-    const fields = (licenses.fields ?? []) as { name: string }[];
-    const have = new Set(fields.map((field) => field.name));
-    const extra = licenseFields.filter((field) => !have.has(field.name));
-    const indexes = (licenses as { indexes?: string[] }).indexes ?? [];
-    const hasIndex = indexes.some((index) => index.includes("idx_appsumo_license_key"));
-    if (extra.length || !hasIndex) {
-      await db.collections.update(licenses.id, {
-        ...(extra.length ? { fields: [...fields, ...extra] } : {}),
-        ...(hasIndex ? {} : { indexes: [...indexes, licenseIndex] }),
-      });
-    }
+    licenses = await db.collections.getOne("appsumoLicenses");
   } catch {
+    licenses = null;
+  }
+  if (!licenses) {
     await db.collections.create({
       name: "appsumoLicenses",
       type: "base",
       fields: licenseFields,
       indexes: [licenseIndex],
     });
+  } else {
+    const fields = asFields(licenses);
+    const have = new Set(fields.map((field) => field.name));
+    const extra = licenseFields.filter((field) => !have.has(field.name));
+    const widened = withoutTextCaps(fields);
+    const indexes = licenses.indexes ?? [];
+    const hasIndex = indexes.some((index) => index.includes("idx_appsumo_license_key"));
+    if (extra.length || widened.changed || !hasIndex) {
+      await db.collections.update(licenses.id, {
+        ...(extra.length || widened.changed ? { fields: [...widened.next, ...extra] } : {}),
+        ...(hasIndex ? {} : { indexes: [...indexes, licenseIndex] }),
+      });
+    }
   }
 }
 
