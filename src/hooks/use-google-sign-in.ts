@@ -14,8 +14,9 @@ export function useGoogleSignIn(options?: { consent?: boolean }) {
     setBusy(true);
     if (!hasPendingSignIn()) rememberNextPath("/dashboard");
     const next = safeRedirect(sessionStorage.getItem("todobee:after-sign-in"));
-    const ask = consent ? "&consent=1" : "";
-    window.location.href = `/api/auth/google?next=${encodeURIComponent(next)}${ask}`;
+    const params = new URLSearchParams({ next });
+    if (consent) params.set("consent", "1");
+    window.location.href = `/api/auth/google?${params.toString()}`;
   };
 
   return { signIn, busy };
