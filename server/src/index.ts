@@ -359,7 +359,7 @@ app.get("/api/auth/google/callback", async (c) => {
   const fallbackOrigin = env.requestOrigin((name) => c.req.header(name), c.req.url);
   if (oauthError) {
     console.error(`[Google OAuth Error] ${oauthError}: ${oauthDesc || "No description provided by Google"}`);
-    return c.redirect(`${fallbackOrigin}/?auth_error=${encodeURIComponent(oauthError)}`);
+    return c.redirect(`${fallbackOrigin}/auth?auth_error=${encodeURIComponent(oauthError)}`);
   }
   const code = c.req.query("code") || "";
   const rawState = c.req.query("state");
@@ -378,7 +378,7 @@ app.get("/api/auth/google/callback", async (c) => {
       hasState: Boolean(rawState),
       stateVerified: Boolean(state),
     });
-    return c.redirect(`${origin}/?auth_error=invalid_state`);
+    return c.redirect(`${origin}/auth?auth_error=invalid_state`);
   }
   try {
     console.log("[Google OAuth] Exchanging code for tokens...");
@@ -451,7 +451,7 @@ app.get("/api/auth/google/callback", async (c) => {
   } catch (error) {
     console.error("[Google OAuth Callback Error]:", error);
     const msg = recordFailure(error);
-    return c.redirect(`${origin}/?auth_error=${encodeURIComponent(msg.slice(0, 400))}`);
+    return c.redirect(`${origin}/auth?auth_error=${encodeURIComponent(msg.slice(0, 400))}`);
   }
 });
 

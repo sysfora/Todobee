@@ -12,11 +12,14 @@ export function useGoogleSignIn(options?: { consent?: boolean }) {
 
   const signIn = () => {
     setBusy(true);
-    if (!hasPendingSignIn()) rememberNextPath("/dashboard");
-    const next = safeRedirect(sessionStorage.getItem("todobee:after-sign-in"));
-    const params = new URLSearchParams({ next });
-    if (consent) params.set("consent", "1");
-    window.location.href = `/api/auth/google?${params.toString()}`;
+    if (consent) {
+      if (!hasPendingSignIn()) rememberNextPath("/dashboard");
+      const next = safeRedirect(sessionStorage.getItem("todobee:after-sign-in"));
+      const params = new URLSearchParams({ next, consent: "1" });
+      window.location.href = `/api/auth/google?${params.toString()}`;
+      return;
+    }
+    window.location.href = "/auth";
   };
 
   return { signIn, busy };

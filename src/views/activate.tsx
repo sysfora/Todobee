@@ -44,7 +44,7 @@ export function ActivatePage() {
         credentials: "include",
       });
       if (res.status === 401) {
-        window.location.href = `/api/auth/google?next=${encodeURIComponent("/activate")}&grant=${encodeURIComponent(grant)}&sig=${encodeURIComponent(sig)}`;
+        window.location.href = `/auth?next=${encodeURIComponent("/activate")}&grant=${encodeURIComponent(grant)}&sig=${encodeURIComponent(sig)}`;
         return;
       }
       const body = (await res.json().catch(() => ({}))) as Preview & { error?: string };
