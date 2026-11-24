@@ -1,4 +1,4 @@
-import PocketBase from "pocketbase";
+import PocketBase, { ClientResponseError, isTokenExpired, type SendOptions } from "pocketbase";
 import { env } from "./env.js";
 import type { AppState } from "./demo/types.js";
 import type { PlanId } from "./demo/subscription.js";
@@ -41,6 +41,42 @@ export interface PbMember {
 }
 
 let client: PocketBase | null = null;
+let refreshing: Promise<void> | null = null;
+
+/** Re-authenticates the server's superuser client, coalescing concurrent refreshes. */
+async function authenticateSuperuser(db: PocketBase) {
+  if (refreshing) return refreshing;
+  refreshing = (async () => {
+    const auth = new PocketBase(db.baseURL);
+    auth.autoCancellation(false);
+    await auth.collection("_superusers").authWithPassword(env.pbEmail(), env.pbPassword());
+    db.authStore.save(auth.authStore.token, auth.authStore.record);
+  })().finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
+function withAuthHeader(headers: SendOptions["headers"], token: string) {
+  const next: Record<string, string> = {};
+  if (headers instanceof Headers) {
+    headers.forEach((value, key) => {
+      if (key.toLowerCase() !== "authorization") next[key] = value;
+    });
+  } else if (Array.isArray(headers)) {
+    for (const [key, value] of headers) {
+      if (key.toLowerCase() !== "authorization") next[key] = value;
+    }
+  } else if (headers && typeof headers === "object") {
+    for (const [key, value] of Object.entries(headers)) {
+      if (key.toLowerCase() !== "authorization" && typeof value === "string") {
+        next[key] = value;
+      }
+    }
+  }
+  next.Authorization = token;
+  return next;
+}
 
 export function pb() {
   if (!client) throw new Error("PocketBase is not ready.");
@@ -56,8 +92,9 @@ export async function findUserBy(field: "email" | "googleSub", value: string) {
     return await pb()
       .collection("users")
       .getFirstListItem<PbUser>(`${field}="${quote(value)}"`);
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof ClientResponseError && error.status === 404) return null;
+    throw error;
   }
 }
 
@@ -251,7 +288,20 @@ export async function initPocketBase() {
   if (!health?.ok) throw new Error(`PocketBase did not respond at ${url}.`);
   const db = new PocketBase(url);
   db.autoCancellation(false);
-  await db.collection("_superusers").authWithPassword(env.pbEmail(), env.pbPassword());
+  await authenticateSuperuser(db);
+  db.beforeSend = async (requestUrl, options) => {
+    if (!db.authStore.isSuperuser || isTokenExpired(db.authStore.token, 120)) {
+      await authenticateSuperuser(db);
+      options.headers = withAuthHeader(options.headers, db.authStore.token);
+    }
+    return { url: requestUrl, options };
+  };
+  db.afterSend = (response, data) => {
+    if (response.status === 401 || response.status === 403) {
+      db.authStore.clear();
+    }
+    return data;
+  };
   await ensureSchema(db);
   client = db;
   return db;
