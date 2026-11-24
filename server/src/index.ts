@@ -413,7 +413,6 @@ app.get("/api/auth/google/callback", async (c) => {
         avatar: profile.picture,
         googleSub: profile.sub,
         emailVisibility: true,
-        verified: true,
         refreshToken: refresh,
       });
     } else {
@@ -422,7 +421,6 @@ app.get("/api/auth/google/callback", async (c) => {
         avatar: user.avatar ?? profile.picture,
         googleSub: profile.sub,
         emailVisibility: true,
-        verified: true,
         ...(tokens.refresh_token ? { refreshToken: refresh } : {}),
       });
     }
