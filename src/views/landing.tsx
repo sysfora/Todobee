@@ -3,6 +3,7 @@
 import { useResumeSignIn } from "@/hooks/use-google-sign-in";
 import { useLifetimeToast } from "@/hooks/use-lifetime-toast";
 import { SignInButton } from "@/components/landing/SignInButton";
+import { AppSumoDeal } from "@/components/landing/AppSumoDeal";
 import { useEffect, type ReactNode } from "react";
 import { toast } from "sonner";
 import { applyTheme } from "@/lib/theme";
@@ -130,6 +131,7 @@ export function LandingPage() {
 
   return (
     <div id="top" className="min-h-dvh bg-surface text-foreground">
+      <AppSumoDeal />
       <LandingNav dashboard />
       <main>
         {/* Hero */}
