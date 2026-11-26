@@ -178,7 +178,7 @@ export function LandingPage() {
               href={DEMO_ORIGIN}
               className={cn(buttonVariants({ size: "lg", variant: "outline" }), "px-6")}
             >
-              Live demo (No sign up)
+              Live demo
             </a>
           </div>
         </section>
